@@ -37,3 +37,8 @@ mypy==1.8.0
 
 # Logging and Monitoring
 loguru==0.7.2
+chromadb==0.4.22
+openai==1.10.0
+tiktoken==0.5.2
+sentence-transformers==2.3.1
+torch==2.1.0
