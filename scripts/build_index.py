@@ -44,7 +44,7 @@ def main():
     print("Step 1: Generating embeddings...")
     print("-" * 60)
     
-    generator = LocalEmbeddingGenerator(model_name="mini")
+    generator = LocalEmbeddingGenerator(model_name="bge-small")
     embedded_chunks = generator.embed_chunks(chunks)
     
     print(f"\n✅ Generated {len(embedded_chunks)} embeddings")
