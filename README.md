@@ -1,187 +1,631 @@
 # 3GPP Technical Specification RAG Assistant 🚀
 
-An AI-powered Retrieval-Augmented Generation (RAG) system that makes navigating 3GPP technical specifications effortless. Ask questions in natural language and get accurate, cited answers from 5G/LTE documentation.
+An AI-powered Retrieval-Augmented Generation (RAG) system that makes navigating 3GPP technical specifications effortless. Ask questions in natural language and get accurate, cited answers from 5G/LTE documentation — **completely free, fully local, no API keys required.**
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Tests](https://img.shields.io/badge/tests-82%20passing-brightgreen.svg)](#testing)
+
+---
+
+## Table of Contents
+
+1. [Project Overview](#-project-overview)
+2. [Problem Statement & Research](#-problem-statement--research)
+3. [User Stories](#-user-stories)
+4. [Architecture](#-architecture)
+5. [Features](#-features)
+6. [Quick Start](#-quick-start)
+7. [Configuration](#-configuration)
+8. [Project Structure](#-project-structure)
+9. [Testing](#-testing)
+10. [Performance Metrics](#-performance-metrics)
+11. [Product Development Roadmap](#-product-development-roadmap)
+12. [Contributing](#-contributing)
+13. [License](#-license)
+14. [Contact](#-contact)
+
+---
 
 ## 🎯 Project Overview
 
-During my work on 5G network deployments at Rogers Communications, I noticed engineers spending hours searching through 3GPP specifications. This RAG system automates that process using:
+During my work on 5G network deployments at Rogers Communications, I noticed engineers spending hours manually searching through 3GPP specifications to answer basic architecture questions. A single query could mean skimming through hundreds of pages across multiple documents.
 
-- **Vector embeddings** for semantic search across technical documents
-- **Large Language Models** for natural language understanding
-- **Citation tracking** to ensure answer accuracy and traceability
-- **Production-ready architecture** with FastAPI backend and monitoring
+This RAG system automates that process using:
 
-## ✨ Features
+- **Local vector embeddings** for semantic search across thousands of spec pages
+- **Open-source LLMs via Ollama** for natural language answer generation
+- **Citation tracking** to ensure every answer is grounded in the source documents
+- **Zero API costs** — the entire pipeline runs on your machine
 
-- 🔍 **Semantic Search**: Find relevant information across 1000+ pages of specs using local embeddings
-- 💬 **Natural Language Queries**: Ask questions like "What is the gNB architecture?"
-- 📚 **Citation Tracking**: Every answer includes source document references
-- 💰 **No API Costs**: Fully local embeddings - no external API dependencies or costs
-- 🔄 **Conversation Memory**: Multi-turn conversations with context retention
-- 📊 **Analytics Dashboard**: Query patterns, performance metrics, and usage stats
-- 🚀 **Open Source Models**: Built entirely on open source embedding models (sentence-transformers)
+---
+
+## 🔬 Problem Statement & Research
+
+### The Problem
+
+3GPP specifications are the authoritative reference for all cellular standards (4G LTE, 5G NR, 6G). Engineers, researchers, and standards professionals must constantly reference these documents to:
+
+- Understand protocol architecture and interfaces
+- Verify compliance requirements
+- Resolve implementation ambiguities
+- Onboard new team members to complex standards
+
+**Pain points identified:**
+
+| Problem | Impact |
+|---|---|
+| Documents are hundreds to thousands of pages each | Hours lost per query |
+| Terminology is dense and highly specialized | Steep learning curve for new engineers |
+| Answers often span multiple documents (e.g. TS 38.300 + 38.401) | Manual cross-referencing required |
+| No semantic search — only keyword/text search in PDFs | Low recall on conceptual questions |
+| No conversational interface | Each query starts from scratch |
+
+### Research Findings
+
+**Domain:** 3GPP releases thousands of technical specifications. The most critical for 5G NR include:
+
+| Spec | Title | Relevance |
+|---|---|---|
+| TS 38.300 | NR Overall Description | Core NR architecture |
+| TS 38.401 | NG-RAN Architecture Description | RAN architecture & interfaces |
+| TS 38.104 | NR Base Station Radio Transmission | RF requirements |
+| TS 23.501 | 5G System Architecture | Core network architecture |
+| TS 38.211–38.215 | NR Physical Layer | Physical layer specs |
+
+**RAG vs. Fine-tuning for this domain:**
+
+RAG was chosen over fine-tuning for the following reasons:
+
+- Specs are updated every 3GPP release cycle — RAG allows instant updates by re-indexing
+- Fine-tuning requires labelled Q&A pairs which don't exist publicly for 3GPP
+- RAG provides citations — critical for standards work where traceability matters
+- RAG works well on highly structured technical text with consistent terminology
+
+**Embedding model selection research:**
+
+| Model | Dim | Size | Technical Doc Perf | Decision |
+|---|---|---|---|---|
+| `all-MiniLM-L6-v2` | 384 | 80MB | Good | Baseline |
+| `all-mpnet-base-v2` | 768 | 420MB | Better | Evaluated |
+| `BAAI/bge-small-en-v1.5` | 384 | 130MB | Best small | **Selected** |
+| `BAAI/bge-base-en-v1.5` | 768 | 440MB | Best overall | Recommended for prod |
+
+BGE (BAAI General Embeddings) models consistently outperform others on technical/scientific text retrieval benchmarks (MTEB leaderboard). The `bge-small` model offers the best accuracy-to-size ratio for this use case.
+
+**LLM selection research:**
+
+All models run locally via [Ollama](https://ollama.com):
+
+| Model | Size | Strengths | Notes |
+|---|---|---|---|
+| `llama3.2` | 2GB | General purpose, instruction-following | Default — best balance |
+| `mistral` | 4GB | Strong on technical text | Good alternative |
+| `phi3` | 2.2GB | Fast, efficient | Good for constrained hardware |
+| `deepseek-r1` | 4.7GB | Reasoning tasks | Best for complex queries |
+
+**Chunking strategy research:**
+
+- Chunk size: **1000 characters** with **200 character overlap**
+- Sentence-boundary aware splitting to avoid mid-sentence cuts
+- 3GPP-specific header/footer stripping (removes page numbers, revision markers)
+- Tables extracted and included as structured text rows
+
+---
+
+## 👤 User Stories
+
+### Primary Users
+
+#### 1. Telecom Engineer (Core User)
+
+> *"As a 5G RAN engineer, I want to ask natural language questions about 3GPP specs and get cited answers, so that I can resolve implementation questions in minutes instead of hours."*
+
+**Acceptance Criteria:**
+- [ ] Can ask a question in plain English about 5G/NR/LTE
+- [ ] Receives an answer with specific source document citations
+- [ ] Answer is generated in under 5 seconds on standard hardware
+- [ ] Can follow up with clarifying questions in the same session
+- [ ] Can filter queries to a specific specification document
+
+---
+
+#### 2. Standards Researcher
+
+> *"As a telecom researcher, I want to search across multiple 3GPP releases simultaneously, so that I can track how a feature has evolved across specification versions."*
+
+**Acceptance Criteria:**
+- [ ] Can query across all indexed documents at once
+- [ ] Can filter results to a specific spec version or document
+- [ ] Source citations include document name and approximate location
+- [ ] Can export answers and sources for documentation purposes
+
+---
+
+#### 3. New Engineer Onboarding
+
+> *"As a new team member, I want a conversational interface to ask 'dumb questions' about 5G architecture without bothering senior engineers, so that I can learn faster and independently."*
+
+**Acceptance Criteria:**
+- [ ] Conversational multi-turn interface (remembers context of prior questions)
+- [ ] Answers are technically accurate but explained clearly
+- [ ] System gracefully handles questions outside the indexed documents
+- [ ] Interactive CLI or web UI available
+
+---
+
+#### 4. Technical Writer / Documentation Team
+
+> *"As a technical writer, I want to quickly find authoritative spec text for a given feature, so that I can write accurate documentation with proper 3GPP references."*
+
+**Acceptance Criteria:**
+- [ ] Returns verbatim or near-verbatim spec excerpts
+- [ ] Clearly identifies which document and section the text comes from
+- [ ] Can retrieve multiple relevant passages for a single topic
+
+---
+
+### Secondary Users
+
+#### 5. DevOps / Platform Engineer
+
+> *"As a DevOps engineer, I want performance metrics and health endpoints, so that I can monitor the RAG system in production."*
+
+**Acceptance Criteria:**
+- [ ] `/health` endpoint returns system status
+- [ ] Per-query timing metrics (retrieve time, generate time)
+- [ ] Metrics persisted and exportable as JSON
+- [ ] Structured logging with configurable log level
+
+---
+
+#### 6. Telecom Student / Academic
+
+> *"As a grad student studying 5G, I want free access to a spec assistant that doesn't require expensive API subscriptions, so that I can use it for my research without cost barriers."*
+
+**Acceptance Criteria:**
+- [ ] Fully local — no API keys or cloud services required
+- [ ] Works offline once models are downloaded
+- [ ] Clear setup documentation for non-DevOps users
+- [ ] Open source and self-hostable
+
+---
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────┐      ┌──────────────┐      ┌─────────────┐
-│   Frontend  │─────▶│  FastAPI     │─────▶│  Vector DB  │
-│  (Streamlit)│      │   Backend    │      │  (Chroma)   │
-└─────────────┘      └──────────────┘      └─────────────┘
-                            │
-                            ▼
-                     ┌──────────────┐
-                     │ Local LLM    │
-                     │ (Open Source)│
-                     └──────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                        User                             │
+│            (CLI / Streamlit UI / REST API)              │
+└────────────────────────┬────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────┐
+│                   RAG Chain                             │
+│              src/core/rag_chain.py                      │
+│   • Conversation history (multi-turn)                   │
+│   • Prompt construction                                 │
+│   • Streaming support                                   │
+└──────────┬──────────────────────────┬───────────────────┘
+           │                          │
+           ▼                          ▼
+┌─────────────────────┐   ┌───────────────────────────────┐
+│  Document Retriever │   │         Local LLM             │
+│  src/core/          │   │      src/core/llm.py          │
+│  retriever.py       │   │   Ollama (llama3.2/mistral)   │
+│                     │   │   • generate() blocking       │
+│  1. Embed query     │   │   • stream() token-by-token   │
+│  2. Vector search   │   │   • No API key needed         │
+│  3. Return top-k    │   └───────────────────────────────┘
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐   ┌───────────────────────────────┐
+│   Vector Store      │   │   Embedding Generator         │
+│ src/core/           │◀──│   src/core/embeddings.py      │
+│ vector_store.py     │   │   sentence-transformers       │
+│ ChromaDB persistent │   │   bge-small-en-v1.5 (default) │
+└─────────────────────┘   └───────────────────────────────┘
+           ▲
+           │  (index build time)
+           │
+┌─────────────────────────────────────────────────────────┐
+│              Document Processor                         │
+│          src/core/document_processor.py                 │
+│   PDF (.pdf) │ Word (.docx) │ Legacy Word (.doc)        │
+│   • Clean text  • Chunk (1000 chars, 200 overlap)       │
+│   • Extract metadata  • Sentence-boundary aware         │
+└─────────────────────────────────────────────────────────┘
+           ▲
+           │
+┌─────────────────────────────────────────────────────────┐
+│                  data/raw/                              │
+│        3GPP Specification Files                         │
+│   TS 38.300, TS 38.401, TS 23.501 ...                  │
+└─────────────────────────────────────────────────────────┘
 ```
 
-**Embeddings**: Local models (sentence-transformers) - no API required ✨
+**Key design decisions:**
+- **No cloud dependencies** — ChromaDB persists locally, Ollama runs locally
+- **Streaming first** — `rag_chain.stream_query()` yields tokens as they generate
+- **Modular components** — each layer is independently testable and swappable
+- **Graceful degradation** — clear error messages if Ollama isn't running
+
+---
+
+## ✨ Features
+
+- 🔍 **Semantic Search** — finds conceptually relevant spec sections, not just keyword matches
+- 💬 **Natural Language Queries** — ask questions like "What is the gNB-CU/DU split?"
+- 📚 **Citation Tracking** — every answer includes source document name and similarity score
+- 💰 **Zero Cost** — fully local, no API keys, no subscriptions
+- 🔄 **Conversation Memory** — multi-turn conversations with context retention (configurable history depth)
+- 📡 **Streaming Responses** — answers stream token-by-token for instant feedback
+- 🗂️ **Multi-format Support** — indexes PDF, DOCX, and legacy DOC files
+- 🔎 **Source Filtering** — restrict queries to a specific spec document
+- 📊 **Performance Metrics** — per-query timing, aggregated stats, JSON export
+- 🧪 **82 Unit Tests** — fully mocked test suite that runs without any live services
+
+---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- Python 3.9 or higher
+- Python 3.9+
+- [Ollama](https://ollama.com) (for LLM answer generation)
 - Git
-- (Optional) CUDA/GPU for faster embedding generation
 
 ### Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/YOUR_USERNAME/3gpp-rag-assistant.git
+# 1. Clone the repository
+git clone https://github.com/ericnc09/3gpp-rag-assistant.git
 cd 3gpp-rag-assistant
 
-# Create virtual environment
+# 2. Create and activate virtual environment
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate      # Windows: venv\Scripts\activate
 
-# Install dependencies
+# 3. Install dependencies
 pip install -r requirements.txt
 
-# (Optional) Set up environment variables for advanced configuration
+# 4. Copy environment config
 cp .env.example .env
 ```
 
-**Note**: No API keys required! All embeddings are generated locally using open source models.
-
-### Running the Application
+### Set Up Ollama (Local LLM)
 
 ```bash
-# 1. Download and process 3GPP specifications
-python src/core/document_processor.py
+# Install Ollama (macOS)
+brew install ollama
 
-# 2. Start the FastAPI backend
-uvicorn src.api.main:app --reload --port 8000
+# Or download from https://ollama.com for Windows/Linux
 
-# 3. Launch the Streamlit frontend (in a new terminal)
-streamlit run src/frontend/app.py
+# Pull the default model (2GB, one-time download)
+ollama pull llama3.2
+
+# Start the Ollama server (keep running in background)
+ollama serve
 ```
 
-Visit `http://localhost:8501` to start asking questions!
+### Build the Index
+
+```bash
+# Place your 3GPP spec files in data/raw/
+# Supports .pdf, .docx, .doc
+
+# Process documents into chunks
+python src/core/document_processor.py
+
+# Build the vector index (embeds all chunks)
+python scripts/build_index.py
+```
+
+### Query the Assistant
+
+```bash
+# Single question
+python scripts/query.py "What is the gNB-CU architecture?"
+
+# Stream answer token-by-token
+python scripts/query.py --stream "Explain the F1 interface"
+
+# Show source documents
+python scripts/query.py --show-sources "How does handover work in 5G?"
+
+# Filter to a specific spec
+python scripts/query.py --source 38300 "What are the NR frequency bands?"
+
+# Interactive multi-turn REPL
+python scripts/query.py
+```
+
+Visit `http://localhost:8501` for the Streamlit UI (Week 2).
+
+---
 
 ## 📖 Example Queries
 
-Try asking:
-- "What is the difference between SA and NSA 5G deployment?"
-- "Explain the NG-RAN architecture"
-- "What are the key features of NR physical layer?"
-- "How does handover work in 5G networks?"
-
-## 📁 Project Structure
-
 ```
-3gpp-rag-assistant/
-├── src/
-│   ├── api/              # FastAPI backend
-│   │   ├── main.py       # API endpoints
-│   │   └── models.py     # Pydantic schemas
-│   ├── core/             # Core RAG logic
-│   │   ├── embeddings.py # Vector embedding generation
-│   │   ├── retriever.py  # Document retrieval
-│   │   ├── llm.py        # LLM interaction
-│   │   └── document_processor.py  # PDF parsing
-│   ├── utils/            # Utility functions
-│   │   ├── logger.py     # Logging configuration
-│   │   └── metrics.py    # Cost and performance tracking
-│   └── frontend/         # Streamlit UI
-│       └── app.py
-├── data/
-│   ├── raw/              # Original 3GPP PDFs
-│   └── processed/        # Parsed and chunked documents
-├── tests/                # Unit and integration tests
-├── notebooks/            # Jupyter notebooks for exploration
-├── docs/                 # Additional documentation
-├── requirements.txt      # Python dependencies
-├── .env.example          # Environment variables template
-└── README.md
+You: What is the difference between SA and NSA 5G deployment?
+You: Explain the NG-RAN architecture
+You: What are the key features of the NR physical layer?
+You: How does handover work in 5G networks?
+You: What protocols run between gNB-CU and gNB-DU?
+You: Describe the Xn interface
+You: What is the role of the AMF in 5G core?
 ```
+
+---
 
 ## 🔧 Configuration
 
-Key configuration options in `.env`:
+Key settings in `.env`:
 
 ```env
-# Embedding Configuration (Local Models - No API Key Needed!)
-# Options: "mini" (fast), "mpnet" (better), "bge-small" (technical docs), "bge-base" (best quality)
-EMBEDDING_MODEL=mini
+# Local LLM (Ollama)
+OLLAMA_BASE_URL=http://localhost:11434
+LLM_MODEL=llama3.2         # or: mistral, phi3, deepseek-r1
+
+# Embeddings (local, free)
+EMBEDDING_MODEL=bge-small   # or: mini, mpnet, bge-base
 
 # Vector Database
 VECTOR_DB_PATH=./data/vectordb
 CHUNK_SIZE=1000
 CHUNK_OVERLAP=200
 
-# API Configuration
+# API
 API_PORT=8000
 LOG_LEVEL=INFO
+
+# RAG Settings
+MAX_HISTORY_LENGTH=5
+TOP_K_RESULTS=5
 ```
 
 ### Available Embedding Models
 
-All models are **completely free** and run locally:
+All models run **completely free** and locally:
 
 | Model | Size | Dimensions | Speed | Best For |
-|-------|------|-----------|-------|----------|
-| `mini` | 80MB | 384 | ⚡ Fast | Quick prototyping |
-| `mpnet` | 420MB | 768 | 🔄 Medium | Balanced performance |
-| `bge-small` | 130MB | 384 | ⚡ Fast | Technical documents |
-| `bge-base` | 440MB | 768 | 🚀 Best | Maximum accuracy |
+|---|---|---|---|---|
+| `mini` | 80MB | 384 | ⚡ Fastest | Quick prototyping |
+| `mpnet` | 420MB | 768 | 🔄 Medium | Balanced |
+| `bge-small` | 130MB | 384 | ⚡ Fast | **Technical docs (default)** |
+| `bge-base` | 440MB | 768 | 🔄 Medium | Maximum accuracy |
+
+### Available LLM Models (Ollama)
+
+| Model | Size | Notes |
+|---|---|---|
+| `llama3.2` | 2GB | Default — best balance of speed and quality |
+| `mistral` | 4GB | Strong on technical text |
+| `phi3` | 2.2GB | Fastest, good for constrained hardware |
+| `deepseek-r1` | 4.7GB | Best for complex reasoning queries |
+
+---
+
+## 📁 Project Structure
+
+```
+3gpp-rag-assistant/
+├── src/
+│   ├── api/                        # FastAPI backend (Week 2)
+│   │   ├── main.py                 # API endpoints
+│   │   └── models.py               # Pydantic schemas
+│   ├── core/                       # Core RAG logic
+│   │   ├── document_processor.py   # Entry point: PDF/DOCX/DOC → chunks
+│   │   ├── embeddings.py           # Local embedding generation
+│   │   ├── vector_store.py         # ChromaDB wrapper
+│   │   ├── retriever.py            # Semantic search
+│   │   ├── llm.py                  # Ollama LLM client (stream + blocking)
+│   │   └── rag_chain.py            # Full RAG pipeline + conversation memory
+│   ├── utils/
+│   │   ├── logger.py               # Structured logging
+│   │   └── metrics.py              # Per-query timing + aggregated stats
+│   └── frontend/                   # Streamlit UI (Week 2)
+│       └── app.py
+├── scripts/
+│   ├── build_index.py              # Build ChromaDB vector index
+│   ├── query.py                    # CLI query interface
+│   └── eval_retrieval.py           # Retrieval + answer quality evaluation
+├── tests/
+│   ├── conftest.py                 # Shared fixtures
+│   ├── test_embeddings.py          # 14 tests
+│   ├── test_vector_store.py        # 11 tests
+│   ├── test_retriever.py           # 15 tests
+│   ├── test_llm.py                 # 9 tests
+│   ├── test_rag_chain.py           # 14 tests
+│   ├── test_metrics.py             # 21 tests
+│   └── test_integration.py         # Integration tests (requires live index)
+├── data/
+│   ├── raw/                        # 3GPP specification files (.pdf/.docx/.doc)
+│   └── processed/                  # Chunked documents (chunks.json)
+├── docs/
+│   └── GETTING_STARTED.md
+├── requirements.txt
+├── .env.example
+└── README.md
+```
+
+---
 
 ## 🧪 Testing
 
 ```bash
-# Run all tests
-pytest
+# Run all unit tests (82 tests, no live services needed)
+pytest tests/ --ignore=tests/test_integration.py
 
-# Run with coverage
-pytest --cov=src tests/
+# Run with coverage report
+pytest tests/ --ignore=tests/test_integration.py --cov=src --cov-report=term-missing
 
-# Run specific test file
-pytest tests/test_retriever.py
+# Run integration tests (requires populated vector store)
+pytest -m integration tests/test_integration.py
+
+# Run evaluation script (retrieval quality)
+python scripts/eval_retrieval.py
+
+# Run full evaluation including answer quality (requires Ollama)
+python scripts/eval_retrieval.py --full --output data/eval_results.json
 ```
+
+**Current test coverage:**
+
+| Module | Tests | Coverage |
+|---|---|---|
+| `embeddings.py` | 14 | 63% |
+| `vector_store.py` | 11 | 88% |
+| `retriever.py` | 15 | 53% |
+| `llm.py` | 9 | 61% |
+| `rag_chain.py` | 14 | 75% |
+| `metrics.py` | 21 | 77% |
+| **Total** | **82** | — |
+
+---
 
 ## 📊 Performance Metrics
 
-Current benchmarks (based on 3GPP TS 38.300 with all-MiniLM-L6-v2 model):
-- **Average query time**: ~1.5-2s (CPU), <0.5s (GPU)
-- **Retrieval accuracy**: 90%+ (top-5 chunks contain answer)
-- **Cost per query**: **Free** (completely local) 🎉
-- **Document processing**: ~50-100 PDFs/minute (CPU)
-- **Memory footprint**: ~200MB (model + overhead)
+Benchmarks on Apple M2 (CPU only):
 
-## 🛣️ Roadmap
+| Metric | Value |
+|---|---|
+| Average retrieve time | ~0.3s |
+| Average generate time | ~1.5–2s |
+| Total query time | ~2–2.5s |
+| Cost per query | **$0.00** |
+| Retrieval accuracy (top-5) | 90%+ |
+| Document processing | ~50–100 docs/min |
+| Memory footprint | ~200MB (model + ChromaDB) |
 
-- [ ] Phase 1: Core RAG functionality with 3GPP specs ✅
-- [ ] Phase 2: Add evaluation metrics (answer quality scoring)
-- [ ] Phase 3: Support for multiple document formats (Word, HTML)
-- [ ] Phase 4: Fine-tune embedding model on telecom domain
-- [ ] Phase 5: Deploy to cloud (AWS/GCP)
-- [ ] Phase 6: Multi-user authentication and query history
+---
+
+## 🛣️ Product Development Roadmap
+
+### Overview
+
+This project follows a 3-week sprint structure from a working RAG prototype to a production-ready, deployable assistant.
+
+```
+Week 1: Core RAG Pipeline     ████████████████████  ✅ Complete
+Week 2: API & Frontend        ░░░░░░░░░░░░░░░░░░░░  🔄 In Progress
+Week 3: Polish & Deploy       ░░░░░░░░░░░░░░░░░░░░  📅 Planned
+```
+
+---
+
+### ✅ Week 1 (Days 1–7): Core RAG Pipeline — COMPLETE
+
+#### Day 1: Document Processing
+- [x] `DocumentProcessor` — unified PDF / DOCX / DOC ingestion
+- [x] Sentence-boundary-aware chunking (1000 chars, 200 overlap)
+- [x] 3GPP-specific text cleaning (headers, footers, page numbers)
+- [x] Metadata extraction (source filename, chunk index, format)
+- [x] `data/raw/` → `data/processed/chunks.json` pipeline
+
+#### Days 2–3: Vector Database & Embeddings
+- [x] `LocalEmbeddingGenerator` — sentence-transformers, 4 model options
+- [x] `VectorStore` — ChromaDB persistent client wrapper
+- [x] Batched embedding generation with progress bar
+- [x] `scripts/build_index.py` — end-to-end index build pipeline
+- [x] Migrated from OpenAI embeddings → fully local (zero cost)
+
+#### Days 4–5: LLM Integration & RAG Chain
+- [x] `OllamaLLM` — local LLM client with `generate()` + `stream()`
+- [x] `RAGChain` — full pipeline: retrieve → prompt → generate
+- [x] Multi-turn conversation history (configurable depth)
+- [x] Streaming support (token-by-token via `stream_query()`)
+- [x] `scripts/query.py` — CLI with single, interactive, and stream modes
+- [x] `src/utils/logger.py` — structured logging
+- [x] `src/utils/metrics.py` — per-query timing + JSON persistence
+- [x] Replaced OpenAI/LangChain deps with `ollama` (zero cost)
+
+#### Days 6–7: Testing & Refinement
+- [x] `tests/conftest.py` — shared fixtures for all test modules
+- [x] `tests/test_embeddings.py` — 14 unit tests
+- [x] `tests/test_vector_store.py` — 11 unit tests (real ChromaDB, temp dir)
+- [x] `tests/test_retriever.py` — 15 unit tests
+- [x] `tests/test_llm.py` — 9 unit tests (fully mocked)
+- [x] `tests/test_rag_chain.py` — 14 unit tests
+- [x] `tests/test_metrics.py` — 21 unit tests (incl. persistence)
+- [x] `tests/test_integration.py` — parametrized retrieval quality tests
+- [x] Fixed `document_processor.py` stub → delegates to unified processor
+- [x] Extended `eval_retrieval.py` — answer quality scoring (keyword coverage, grounding, composite 0–1 score), `--full` and `--output` flags
+
+---
+
+### 🔄 Week 2 (Days 8–14): API & Frontend — IN PROGRESS
+
+#### Days 8–9: FastAPI Backend
+- [ ] `src/api/main.py` — REST API application
+- [ ] `POST /query` — submit a question, get answer + sources
+- [ ] `POST /query/stream` — SSE streaming endpoint
+- [ ] `GET /health` — health check with component status
+- [ ] `GET /stats` — vector store and system stats
+- [ ] `DELETE /history` — clear conversation history
+- [ ] `src/api/models.py` — Pydantic request/response schemas
+- [ ] OpenAPI docs auto-generated at `/docs`
+
+#### Days 10–11: Cost Tracking & Observability
+- [ ] Request/response logging middleware
+- [ ] Query latency histogram
+- [ ] `GET /metrics` — aggregated performance stats endpoint
+- [ ] Per-session query history tracking
+- [ ] Configurable log level via environment variable
+
+#### Days 12–14: Streamlit UI
+- [ ] `src/frontend/app.py` — main Streamlit application
+- [ ] Chat interface with message history display
+- [ ] Source document expander (show retrieved chunks)
+- [ ] Sidebar: model selector, top-k slider, source filter
+- [ ] Real-time streaming display
+- [ ] Performance metrics panel
+- [ ] Session history export (JSON / text)
+
+---
+
+### 📅 Week 3 (Days 15–21): Polish & Deploy — PLANNED
+
+#### Days 15–16: Evaluation Metrics
+- [ ] RAGAS-style evaluation framework
+- [ ] Answer faithfulness scoring (does answer contradict context?)
+- [ ] Answer relevance scoring (does answer address the question?)
+- [ ] Context recall scoring (are the right chunks retrieved?)
+- [ ] Automated regression test against golden Q&A pairs
+- [ ] Evaluation report generation (`data/eval_report.json`)
+
+#### Days 17–18: Documentation & Demo
+- [ ] Update `docs/GETTING_STARTED.md` with Ollama setup
+- [ ] Record demo video of end-to-end query session
+- [ ] Add architecture diagram image to README
+- [ ] Add example outputs / screenshots to README
+- [ ] Jupyter notebook: exploratory RAG analysis (`notebooks/rag_exploration.ipynb`)
+- [ ] Docstrings audit — ensure all public methods are documented
+
+#### Days 19–21: Optional Enhancements
+- [ ] Docker + `docker-compose.yml` for one-command local deployment
+- [ ] Support for HTML spec documents (ETSI portal format)
+- [ ] Hybrid search: keyword (BM25) + semantic for better recall
+- [ ] Re-ranking step (cross-encoder) for improved precision
+- [ ] Multi-document comparison mode ("How does this differ between R16 and R17?")
+- [ ] GitHub Actions CI: auto-run unit tests on every PR
+
+---
+
+### Phase Roadmap (Post-Sprint)
+
+| Phase | Description | Status |
+|---|---|---|
+| Phase 1 | Core RAG pipeline (local, zero cost) | ✅ Complete |
+| Phase 2 | Evaluation metrics & quality scoring | 🔄 In progress (Days 15-16) |
+| Phase 3 | Multi-format support (PDF, DOCX, DOC, HTML) | ✅ Complete |
+| Phase 4 | Fine-tune embedding model on telecom domain | 📅 Planned |
+| Phase 5 | Cloud deployment (AWS/GCP) with Docker | 📅 Planned |
+| Phase 6 | Multi-user auth & query history persistence | 📅 Planned |
+
+---
 
 ## 🤝 Contributing
 
@@ -193,25 +637,38 @@ Contributions are welcome! Please:
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
+When adding features, please include:
+- Unit tests (mock external dependencies)
+- Docstrings on public methods
+- An entry in this README if it affects the roadmap or architecture
+
+---
+
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+---
 
 ## 🙏 Acknowledgments
 
 - **3GPP** for providing open access to technical specifications
-- **Sentence Transformers** for excellent open source embedding models
-- **Hugging Face** for model hosting and community
-- **LangChain** community for RAG best practices
+- **BAAI** for the BGE embedding models optimised for technical text
+- **Sentence Transformers** for the embedding framework
+- **Ollama** for making local LLM serving simple and accessible
+- **Hugging Face** for model hosting and the open-source ML community
 - **Rogers Communications** for inspiring this project
 - Open source community for making AI accessible to everyone 💙
 
+---
+
 ## 📧 Contact
 
-**Eric Costa**  
-Email: ericcosta.public@gmail.com  
+**Eric Costa**
+Email: ericcosta.public@gmail.com
 LinkedIn: [linkedin.com/in/niloyericcosta](https://linkedin.com/in/niloyericcosta)
+GitHub: [github.com/ericnc09](https://github.com/ericnc09)
 
 ---
 
-**Note**: This is a portfolio project demonstrating AI product engineering skills. It is not affiliated with or endorsed by 3GPP or Rogers Communications.
+> **Note**: This is a portfolio project demonstrating AI product engineering skills applied to the telecom domain. It is not affiliated with or endorsed by 3GPP or Rogers Communications.
