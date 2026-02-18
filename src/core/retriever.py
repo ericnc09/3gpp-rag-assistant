@@ -27,7 +27,7 @@ class DocumentRetriever:
             top_k: Number of documents to retrieve
         """
         self.vector_store = vector_store or VectorStore()
-        self.embedding_generator = embedding_generator or LocalEmbeddingGenerator(model_name="mini")
+        self.embedding_generator = embedding_generator or LocalEmbeddingGenerator(model_name="bge-small")
         self.top_k = top_k
         
         logger.info(f"Initialized DocumentRetriever (top_k={top_k})")
