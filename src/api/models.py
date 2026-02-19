@@ -1,0 +1,109 @@
+"""
+Pydantic schemas for the 3GPP RAG Assistant API
+
+Request and response models for all endpoints.
+"""
+from pydantic import BaseModel, Field
+from typing import List, Optional
+from datetime import datetime
+
+
+# ---------------------------------------------------------------------------
+# Query endpoint
+# ---------------------------------------------------------------------------
+
+class QueryRequest(BaseModel):
+    """Request body for POST /query"""
+    question: str = Field(
+        ...,
+        min_length=3,
+        max_length=1000,
+        description="Natural language question about 3GPP specifications",
+        examples=["What is the gNB-CU architecture?"]
+    )
+    session_id: Optional[str] = Field(
+        default=None,
+        description="Session ID for conversation history. A new session is created if omitted."
+    )
+    source_filter: Optional[str] = Field(
+        default=None,
+        description="Restrict retrieval to documents whose filename contains this string (e.g. '38300')"
+    )
+    top_k: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=20,
+        description="Number of document chunks to retrieve (default: 5)"
+    )
+
+
+class SourceDocument(BaseModel):
+    """A retrieved source document chunk"""
+    source: str = Field(description="Source document filename")
+    similarity: float = Field(description="Semantic similarity score (0-1)")
+    text: str = Field(description="Preview of the retrieved chunk text")
+
+
+class QueryResponse(BaseModel):
+    """Response body for POST /query"""
+    answer: str = Field(description="Generated answer from the LLM")
+    sources: List[SourceDocument] = Field(description="Retrieved source documents")
+    session_id: str = Field(description="Session ID — pass this back to continue the conversation")
+    query_time: float = Field(description="Total query time in seconds")
+    retrieve_time: float = Field(description="Retrieval time in seconds")
+    generate_time: float = Field(description="LLM generation time in seconds")
+
+
+# ---------------------------------------------------------------------------
+# History endpoint
+# ---------------------------------------------------------------------------
+
+class HistoryMessage(BaseModel):
+    """A single message in conversation history"""
+    role: str = Field(description="'user' or 'assistant'")
+    content: str = Field(description="Message content")
+
+
+class HistoryResponse(BaseModel):
+    """Response body for GET /history/{session_id}"""
+    session_id: str
+    messages: List[HistoryMessage]
+    message_count: int
+
+
+# ---------------------------------------------------------------------------
+# Health endpoint
+# ---------------------------------------------------------------------------
+
+class ComponentStatus(BaseModel):
+    """Status of a single system component"""
+    status: str = Field(description="'ok', 'degraded', or 'unavailable'")
+    detail: Optional[str] = None
+
+
+class HealthResponse(BaseModel):
+    """Response body for GET /health"""
+    status: str = Field(description="Overall status: 'ok' or 'degraded'")
+    components: dict = Field(description="Per-component status")
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+# ---------------------------------------------------------------------------
+# Stats endpoint
+# ---------------------------------------------------------------------------
+
+class StatsResponse(BaseModel):
+    """Response body for GET /stats"""
+    vector_store: dict = Field(description="Vector store statistics")
+    active_sessions: int = Field(description="Number of active conversation sessions")
+    metrics: dict = Field(description="Aggregated query performance metrics")
+
+
+# ---------------------------------------------------------------------------
+# Error response
+# ---------------------------------------------------------------------------
+
+class ErrorResponse(BaseModel):
+    """Standard error response"""
+    error: str
+    detail: Optional[str] = None

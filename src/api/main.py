@@ -1,0 +1,388 @@
+"""
+FastAPI backend for the 3GPP RAG Assistant
+
+Endpoints:
+    POST /query              - Submit a question, get answer + sources
+    POST /query/stream       - Same but streams tokens via SSE
+    GET  /history/{id}       - Get conversation history for a session
+    DELETE /history/{id}     - Clear conversation history for a session
+    GET  /health             - Health check with per-component status
+    GET  /stats              - Vector store + performance metrics
+    GET  /metrics            - Aggregated query performance stats
+
+Run:
+    uvicorn src.api.main:app --reload --port 8000
+
+Interactive docs:
+    http://localhost:8000/docs
+"""
+import uuid
+import time
+import logging
+from datetime import datetime
+from typing import Dict, Optional
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse, JSONResponse
+
+from src.api.models import (
+    QueryRequest, QueryResponse, SourceDocument,
+    HistoryResponse, HistoryMessage,
+    HealthResponse, StatsResponse, ErrorResponse,
+)
+from src.core.rag_chain import RAGChain
+from src.core.vector_store import VectorStore
+from src.core.llm import OllamaLLM
+from src.core.retriever import DocumentRetriever
+from src.utils.logger import setup_logger
+from src.utils.metrics import MetricsTracker
+from src.config import settings
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Application state
+# ---------------------------------------------------------------------------
+
+class AppState:
+    """Holds shared application state (initialised once at startup)."""
+
+    def __init__(self):
+        self.rag_chain: Optional[RAGChain] = None
+        self.vector_store: Optional[VectorStore] = None
+        self.metrics: Optional[MetricsTracker] = None
+        # Session store: session_id -> RAGChain instance
+        # Each session has its own RAGChain so history is isolated
+        self.sessions: Dict[str, RAGChain] = {}
+        self.ready: bool = False
+
+
+app_state = AppState()
+
+
+# ---------------------------------------------------------------------------
+# Lifespan (startup / shutdown)
+# ---------------------------------------------------------------------------
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialise heavy components once at startup."""
+    setup_logger(level=settings.log_level)
+    logger.info("Starting 3GPP RAG Assistant API...")
+
+    try:
+        app_state.vector_store = VectorStore(
+            persist_directory=settings.vector_db_path,
+            collection_name=settings.collection_name,
+        )
+        stats = app_state.vector_store.get_stats()
+        logger.info(f"Vector store ready: {stats['total_chunks']} chunks")
+
+        app_state.metrics = MetricsTracker(persist_path="data/api_metrics.json")
+        app_state.ready = True
+        logger.info("API ready.")
+    except Exception as e:
+        logger.error(f"Startup error: {e}")
+        app_state.ready = False
+
+    yield
+
+    logger.info("Shutting down API.")
+
+
+# ---------------------------------------------------------------------------
+# App definition
+# ---------------------------------------------------------------------------
+
+app = FastAPI(
+    title="3GPP RAG Assistant",
+    description=(
+        "AI-powered question answering over 3GPP technical specifications. "
+        "Fully local — no API keys required."
+    ),
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],   # tighten in production
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ---------------------------------------------------------------------------
+# Middleware: request timing
+# ---------------------------------------------------------------------------
+
+@app.middleware("http")
+async def add_timing_header(request: Request, call_next):
+    t0 = time.time()
+    response = await call_next(request)
+    response.headers["X-Process-Time"] = f"{time.time() - t0:.3f}s"
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _get_or_create_session(session_id: Optional[str]) -> tuple[str, RAGChain]:
+    """Return (session_id, chain), creating a new session if needed."""
+    if session_id and session_id in app_state.sessions:
+        return session_id, app_state.sessions[session_id]
+
+    new_id = session_id or str(uuid.uuid4())
+    chain = RAGChain(
+        retriever=DocumentRetriever(
+            vector_store=app_state.vector_store,
+            top_k=settings.top_k_results,
+        ),
+        llm=OllamaLLM(
+            model=settings.llm_model,
+            base_url=settings.ollama_base_url,
+            temperature=settings.temperature,
+            max_tokens=settings.max_tokens,
+        ),
+        max_history_turns=settings.max_history_length,
+    )
+    app_state.sessions[new_id] = chain
+    logger.info(f"Created session: {new_id}")
+    return new_id, chain
+
+
+def _check_ready():
+    if not app_state.ready:
+        raise HTTPException(
+            status_code=503,
+            detail="Service not ready. Check vector store and configuration."
+        )
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
+@app.post(
+    "/query",
+    response_model=QueryResponse,
+    summary="Ask a question",
+    description="Submit a natural language question and receive a grounded answer with citations.",
+    tags=["Query"],
+)
+async def query(request: QueryRequest):
+    """
+    Ask a question about 3GPP specifications.
+
+    Pass `session_id` from a previous response to continue the conversation.
+    Omit it to start a new session.
+    """
+    _check_ready()
+
+    session_id, chain = _get_or_create_session(request.session_id)
+
+    try:
+        result = chain.query(
+            question=request.question,
+            source_filter=request.source_filter,
+            top_k=request.top_k,
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+    # Record metrics
+    app_state.metrics.record(
+        query=request.question,
+        retrieve_time=result["retrieve_time"],
+        generate_time=result["generate_time"],
+        num_sources=len(result["sources"]),
+        answer_length=len(result["answer"]),
+    )
+
+    return QueryResponse(
+        answer=result["answer"],
+        sources=[SourceDocument(**s) for s in result["sources"]],
+        session_id=session_id,
+        query_time=result["query_time"],
+        retrieve_time=result["retrieve_time"],
+        generate_time=result["generate_time"],
+    )
+
+
+@app.post(
+    "/query/stream",
+    summary="Ask a question (streaming)",
+    description="Same as /query but streams the answer token-by-token via Server-Sent Events.",
+    tags=["Query"],
+)
+async def query_stream(request: QueryRequest):
+    """
+    Stream a response token-by-token using Server-Sent Events (SSE).
+
+    The client receives a series of `data:` lines:
+      - `data: {"type":"sources","sources":[...]}`  (sent first)
+      - `data: {"type":"token","token":"Hello"}`    (one per LLM token)
+      - `data: {"type":"done","session_id":"...","query_time":2.1}`
+    """
+    _check_ready()
+
+    session_id, chain = _get_or_create_session(request.session_id)
+
+    import json
+
+    async def event_generator():
+        try:
+            for chunk in chain.stream_query(
+                question=request.question,
+                source_filter=request.source_filter,
+                top_k=request.top_k,
+            ):
+                if chunk["type"] == "done":
+                    chunk["session_id"] = session_id
+                yield f"data: {json.dumps(chunk)}\n\n"
+        except RuntimeError as e:
+            yield f"data: {json.dumps({'type':'error','detail':str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.get(
+    "/history/{session_id}",
+    response_model=HistoryResponse,
+    summary="Get conversation history",
+    tags=["Session"],
+)
+async def get_history(session_id: str):
+    """Return the full conversation history for a session."""
+    if session_id not in app_state.sessions:
+        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
+
+    chain = app_state.sessions[session_id]
+    history = chain.get_history()
+
+    return HistoryResponse(
+        session_id=session_id,
+        messages=[HistoryMessage(role=m["role"], content=m["content"]) for m in history],
+        message_count=len(history),
+    )
+
+
+@app.delete(
+    "/history/{session_id}",
+    summary="Clear conversation history",
+    tags=["Session"],
+)
+async def clear_history(session_id: str):
+    """Clear the conversation history for a session (session remains active)."""
+    if session_id not in app_state.sessions:
+        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
+
+    app_state.sessions[session_id].clear_history()
+    return {"message": f"History cleared for session '{session_id}'"}
+
+
+@app.get(
+    "/health",
+    response_model=HealthResponse,
+    summary="Health check",
+    tags=["System"],
+)
+async def health():
+    """
+    Check the health of all system components.
+
+    Returns overall status and per-component detail.
+    """
+    components = {}
+
+    # Vector store
+    try:
+        stats = app_state.vector_store.get_stats()
+        if stats["total_chunks"] == 0:
+            components["vector_store"] = {"status": "degraded", "detail": "Index is empty"}
+        else:
+            components["vector_store"] = {
+                "status": "ok",
+                "detail": f"{stats['total_chunks']} chunks indexed"
+            }
+    except Exception as e:
+        components["vector_store"] = {"status": "unavailable", "detail": str(e)}
+
+    # Ollama LLM
+    try:
+        llm = OllamaLLM(model=settings.llm_model, base_url=settings.ollama_base_url)
+        if llm.is_available():
+            components["llm"] = {"status": "ok", "detail": f"model={settings.llm_model}"}
+        else:
+            components["llm"] = {
+                "status": "degraded",
+                "detail": f"Model '{settings.llm_model}' not available. Run: ollama pull {settings.llm_model}"
+            }
+    except Exception as e:
+        components["llm"] = {"status": "unavailable", "detail": str(e)}
+
+    # Embeddings
+    components["embeddings"] = {
+        "status": "ok",
+        "detail": f"model={settings.embedding_model} (local)"
+    }
+
+    overall = (
+        "ok" if all(c["status"] == "ok" for c in components.values())
+        else "degraded"
+    )
+
+    return HealthResponse(
+        status=overall,
+        components=components,
+        timestamp=datetime.utcnow(),
+    )
+
+
+@app.get(
+    "/stats",
+    response_model=StatsResponse,
+    summary="System statistics",
+    tags=["System"],
+)
+async def stats():
+    """Return vector store stats, active session count, and query metrics."""
+    _check_ready()
+
+    vs_stats = app_state.vector_store.get_stats()
+    metrics_summary = app_state.metrics.summary()
+
+    return StatsResponse(
+        vector_store=vs_stats,
+        active_sessions=len(app_state.sessions),
+        metrics=metrics_summary,
+    )
+
+
+@app.get(
+    "/metrics",
+    summary="Query performance metrics",
+    tags=["System"],
+)
+async def metrics():
+    """Return aggregated query performance metrics."""
+    _check_ready()
+    return app_state.metrics.summary()
+
+
+@app.get("/", include_in_schema=False)
+async def root():
+    return {
+        "name": "3GPP RAG Assistant API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/health",
+    }
