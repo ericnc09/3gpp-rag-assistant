@@ -1,12 +1,45 @@
 """
-Configuration management for 3GPP RAG Assistant
+Centralised configuration for the 3GPP RAG Assistant.
+
+All settings are read from environment variables (or a ``.env`` file in the
+project root) via pydantic-settings. Unknown keys are silently ignored so
+legacy ``.env`` files with e.g. ``OPENAI_API_KEY`` don't cause errors.
+
+Environment variable names match the field names exactly (case-insensitive).
+Override any default by exporting the variable before starting the server:
+
+    export LLM_MODEL=mistral
+    uvicorn src.api.main:app --reload
+
+See ``.env.example`` in the project root for a full reference.
 """
 from pydantic_settings import BaseSettings
 from pydantic import ConfigDict
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables"""
+    """Application settings loaded from environment variables / .env file.
+
+    Attributes:
+        ollama_base_url: URL of the Ollama server (default: localhost).
+        llm_model: Name of the Ollama model to use. Must be pulled first:
+            ``ollama pull <model>``.
+        max_tokens: Maximum number of tokens in the LLM response.
+        temperature: Sampling temperature. Lower = more deterministic (0.0–1.0).
+        embedding_model: Shortcut key for the sentence-transformer model.
+            Must match the model used when the vector index was built.
+        vector_db_path: Directory where ChromaDB persists its data.
+        collection_name: ChromaDB collection that holds the indexed chunks.
+        chunk_size: Target character length of each document chunk.
+        chunk_overlap: Character overlap between adjacent chunks for context
+            continuity at boundaries.
+        data_dir: Directory scanned by the document processor for raw specs.
+        api_host: Interface the FastAPI server binds to.
+        api_port: Port the FastAPI server listens on.
+        log_level: Root logging level (DEBUG / INFO / WARNING / ERROR).
+        max_history_length: Number of prior Q&A turns kept in each session.
+        top_k_results: Default number of chunks retrieved per query.
+    """
 
     model_config = ConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 

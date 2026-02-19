@@ -1,16 +1,27 @@
 """
-Embedding generation using FREE local models (no API required)
+Local embedding generation via sentence-transformers (zero cost, no API key).
 
-This module uses sentence-transformers to generate embeddings locally.
-No API costs, no rate limits, completely free!
+Embeddings are dense vector representations of text that capture semantic
+meaning. This module downloads and caches models from HuggingFace on first
+use, then runs entirely locally.
 
-Popular models:
-- all-MiniLM-L6-v2: Fast, 384 dimensions (RECOMMENDED for start)
-- all-mpnet-base-v2: Better quality, 768 dimensions
-- BGE-small-en-v1.5: Great for technical docs, 384 dimensions
+Supported model shortcuts
+-------------------------
+``mini``      all-MiniLM-L6-v2        Fast, 384-dim, ~80 MB
+``mpnet``     all-mpnet-base-v2        Better quality, 768-dim, ~420 MB
+``bge-small`` BAAI/bge-small-en-v1.5  Best for technical/domain text, 384-dim, ~130 MB (default)
+``bge-base``  BAAI/bge-base-en-v1.5   Higher accuracy than bge-small, 768-dim, ~440 MB
+
+The embedding model used at **index time** must match the one used at
+**query time**. The project defaults to ``bge-small`` throughout.
+
+Example:
+    gen = LocalEmbeddingGenerator(model_name="bge-small")
+    vec = gen.generate_embedding("What is the F1 interface?")  # List[float]
+    chunks = gen.embed_chunks(chunk_list)  # adds 'embedding' key to each chunk
 """
 import logging
-from typing import List
+from typing import List, Optional
 import numpy as np
 from pathlib import Path
 
@@ -43,15 +54,19 @@ class LocalEmbeddingGenerator:
         self,
         model_name: str = "mini",
         batch_size: int = 32,
-        device: str = None
-    ):
+        device: Optional[str] = None,
+    ) -> None:
         """
-        Initialize local embedding generator
-        
         Args:
-            model_name: Model to use ('mini', 'mpnet', 'bge-small', 'bge-base')
-            batch_size: Number of texts to embed at once
-            device: 'cuda' for GPU, 'cpu' for CPU, None for auto-detect
+            model_name: Shortcut key from MODELS dict, or a full HuggingFace
+                model ID (e.g. "BAAI/bge-small-en-v1.5").
+            batch_size: Number of texts encoded per forward pass. Larger
+                values are faster but use more memory.
+            device: Force a specific device: ``"cuda"``, ``"cpu"``, or
+                ``None`` for automatic selection (GPU if available).
+
+        Raises:
+            ImportError: If sentence-transformers is not installed.
         """
         if not SentenceTransformer:
             raise ImportError("sentence-transformers required. Install: pip install sentence-transformers")
