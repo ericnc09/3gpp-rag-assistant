@@ -5,7 +5,7 @@ Supported by Claude Code, this is an AI-powered Retrieval-Augmented Generation (
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Tests](https://img.shields.io/badge/tests-82%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-152%20passing-brightgreen.svg)](#testing)
 
 ---
 
@@ -488,17 +488,37 @@ python scripts/eval_retrieval.py --full --output data/eval_results.json
 
 ## 📊 Performance Metrics
 
-Benchmarks on Apple M2 (CPU only):
+Benchmarks on Apple M2 (CPU only) — run `python scripts/eval_retrieval.py [--full]` to refresh:
+
+### Retrieval Quality (10 representative 3GPP queries)
 
 | Metric | Value |
 |---|---|
-| Average retrieve time | ~0.3s |
-| Average generate time | ~1.5–2s |
-| Total query time | ~2–2.5s |
+| Pass rate | 6/10 (60%) |
+| Avg context precision | 100% |
+| Avg context recall | 80% |
+| Avg cosine similarity | 0.510 |
+| Retrieve latency p50 / p95 | 0.050s / 0.390s |
+
+### Answer Quality (RAGAS-style, with Ollama llama3.2)
+
+| Metric | Description |
+|---|---|
+| Answer relevance | Fraction of expected keywords in the answer |
+| Faithfulness | Grounding signals + content overlap with retrieved context |
+| Composite score | Relevance 40% + Faithfulness 40% + Substantive 20% |
+
+Run `python scripts/eval_retrieval.py --full` to generate answer quality scores.
+Latest results are served by the API at `GET /eval`.
+
+### System Latency
+
+| Metric | Value |
+|---|---|
+| Retrieve p50 | ~0.05s |
+| Generate p50 | ~2–4s (llama3.2 on CPU) |
+| Total query p50 | ~2–4s |
 | Cost per query | **$0.00** |
-| Retrieval accuracy (top-5) | 90%+ |
-| Document processing | ~50–100 docs/min |
-| Memory footprint | ~200MB (model + ChromaDB) |
 
 ---
 
@@ -510,8 +530,8 @@ This project follows a 3-week sprint structure from a working RAG prototype to a
 
 ```
 Week 1: Core RAG Pipeline     ████████████████████  ✅ Complete
-Week 2: API & Frontend        ░░░░░░░░░░░░░░░░░░░░  🔄 In Progress
-Week 3: Polish & Deploy       ░░░░░░░░░░░░░░░░░░░░  📅 Planned
+Week 2: API & Frontend        ████████████████████  ✅ Complete
+Week 3: Polish & Deploy       ████████████████░░░░  🔄 In Progress
 ```
 
 ---
@@ -556,61 +576,74 @@ Week 3: Polish & Deploy       ░░░░░░░░░░░░░░░░�
 
 ---
 
-### 🔄 Week 2 (Days 8–14): API & Frontend — IN PROGRESS
+### ✅ Week 2 (Days 8–14): API & Frontend — COMPLETE
 
 #### Days 8–9: FastAPI Backend
-- [ ] `src/api/main.py` — REST API application
-- [ ] `POST /query` — submit a question, get answer + sources
-- [ ] `POST /query/stream` — SSE streaming endpoint
-- [ ] `GET /health` — health check with component status
-- [ ] `GET /stats` — vector store and system stats
-- [ ] `DELETE /history` — clear conversation history
-- [ ] `src/api/models.py` — Pydantic request/response schemas
-- [ ] OpenAPI docs auto-generated at `/docs`
+- [x] `src/api/main.py` — REST API with lifespan startup, CORS, timing middleware
+- [x] `POST /query` — submit a question, get answer + sources (blocking)
+- [x] `POST /query/stream` — SSE streaming endpoint (token-by-token)
+- [x] `GET /history/{id}` — per-session conversation history
+- [x] `DELETE /history/{id}` — clear session history
+- [x] `GET /health` — health check with per-component status
+- [x] `GET /stats` — vector store and session stats
+- [x] `GET /metrics` — aggregated query performance stats
+- [x] `src/api/models.py` — Pydantic v2 request/response schemas
+- [x] OpenAPI docs auto-generated at `/docs`
+- [x] `tests/test_api.py` — 30 unit tests (FastAPI TestClient, all mocked)
 
 #### Days 10–11: Cost Tracking & Observability
-- [ ] Request/response logging middleware
-- [ ] Query latency histogram
-- [ ] `GET /metrics` — aggregated performance stats endpoint
-- [ ] Per-session query history tracking
-- [ ] Configurable log level via environment variable
+- [x] `X-Process-Time` timing header on every response
+- [x] `src/utils/metrics.py` — per-query timing + JSON persistence
+- [x] `GET /metrics` — mean/median/min/max total, retrieve, generate times
+- [x] Per-session history isolation via server-side sessions dict
+- [x] Configurable log level via `LOG_LEVEL` environment variable
 
 #### Days 12–14: Streamlit UI
-- [ ] `src/frontend/app.py` — main Streamlit application
-- [ ] Chat interface with message history display
-- [ ] Source document expander (show retrieved chunks)
-- [ ] Sidebar: model selector, top-k slider, source filter
-- [ ] Real-time streaming display
-- [ ] Performance metrics panel
-- [ ] Session history export (JSON / text)
+- [x] `src/frontend/app.py` — full Streamlit chat application
+- [x] Streaming chat display (tokens appear as they are generated)
+- [x] Source document expander (retrieved chunk previews with scores)
+- [x] Sidebar: API health indicator, top-k slider, source filter input
+- [x] Session management (reuses `session_id` across turns)
+- [x] Runtime fixes: pyproject.toml editable install, Pydantic v2 ConfigDict,
+      chromadb>=0.5.0 migration, httpx pin, streamlit headless config
 
 ---
 
-### 📅 Week 3 (Days 15–21): Polish & Deploy — PLANNED
+### 🔄 Week 3 (Days 15–21): Polish & Deploy — IN PROGRESS
 
-#### Days 15–16: Evaluation Metrics
-- [ ] RAGAS-style evaluation framework
-- [ ] Answer faithfulness scoring (does answer contradict context?)
-- [ ] Answer relevance scoring (does answer address the question?)
-- [ ] Context recall scoring (are the right chunks retrieved?)
-- [ ] Automated regression test against golden Q&A pairs
-- [ ] Evaluation report generation (`data/eval_report.json`)
+#### Days 15–16: Evaluation Metrics ✅
+- [x] RAGAS-inspired evaluation framework (`scripts/eval_retrieval.py`)
+- [x] Context precision: fraction of retrieved chunks from relevant source docs
+- [x] Context recall: expected keyword coverage across top-3 chunks
+- [x] Answer relevance: expected answer keyword hits in generated response
+- [x] Faithfulness: grounding signals + content overlap with retrieved context
+- [x] Composite answer quality score (relevance 40% + faithfulness 40% + substantive 20%)
+- [x] p50/p95 latency benchmarks for retrieve and generate steps
+- [x] 10 test cases covering gNB, handover, QoS, F1/E1/Xn interfaces, SA/NSA
+- [x] `GET /eval` API endpoint serving latest `data/eval_results.json`
+- [x] `tests/test_eval.py` — 40 new unit tests for all eval helpers + /eval endpoint
 
-#### Days 17–18: Documentation & Demo
-- [ ] Update `docs/GETTING_STARTED.md` with Ollama setup
-- [ ] Record demo video of end-to-end query session
-- [ ] Add architecture diagram image to README
-- [ ] Add example outputs / screenshots to README
-- [ ] Jupyter notebook: exploratory RAG analysis (`notebooks/rag_exploration.ipynb`)
-- [ ] Docstrings audit — ensure all public methods are documented
+#### Days 17–18: Code Documentation ✅
+- [x] Full module-level docstrings for all `src/` modules
+- [x] `src/core/retriever.py` — class/method docs, return type annotations
+- [x] `src/core/embeddings.py` — model comparison table, Args/Raises docs
+- [x] `src/core/vector_store.py` — ChromaDB compatibility note
+- [x] `src/config.py` — per-field attribute docs, `.env` usage guide
+- [x] Removed 5 redundant/duplicate source files from `src/core/`
 
-#### Days 19–21: Optional Enhancements
-- [ ] Docker + `docker-compose.yml` for one-command local deployment
-- [ ] Support for HTML spec documents (ETSI portal format)
-- [ ] Hybrid search: keyword (BM25) + semantic for better recall
-- [ ] Re-ranking step (cross-encoder) for improved precision
-- [ ] Multi-document comparison mode ("How does this differ between R16 and R17?")
-- [ ] GitHub Actions CI: auto-run unit tests on every PR
+#### Day 19: Cleanup & README ✅
+- [x] Removed redundant files: `document_processor_COMPLETE/DOC/DOCX.py`,
+      `embeddings_LOCAL.py`, `test_document_processor_COMPLETE.py`
+- [x] Updated test badge: 82 → 152 passing
+- [x] Updated roadmap progress bars
+- [x] Updated performance metrics with real eval results
+
+#### Days 20–21: Deployment Prep
+- [ ] `Dockerfile` for the API service
+- [ ] `docker-compose.yml` (API + Ollama sidecar)
+- [ ] `.env.example` with all configurable variables
+- [ ] `scripts/start.sh` convenience startup script
+- [ ] Git tag `v1.0.0`
 
 ---
 
@@ -619,11 +652,12 @@ Week 3: Polish & Deploy       ░░░░░░░░░░░░░░░░�
 | Phase | Description | Status |
 |---|---|---|
 | Phase 1 | Core RAG pipeline (local, zero cost) | ✅ Complete |
-| Phase 2 | Evaluation metrics & quality scoring | 🔄 In progress (Days 15-16) |
-| Phase 3 | Multi-format support (PDF, DOCX, DOC, HTML) | ✅ Complete |
-| Phase 4 | Fine-tune embedding model on telecom domain | 📅 Planned |
-| Phase 5 | Cloud deployment (AWS/GCP) with Docker | 📅 Planned |
-| Phase 6 | Multi-user auth & query history persistence | 📅 Planned |
+| Phase 2 | REST API + Streamlit UI | ✅ Complete |
+| Phase 3 | Evaluation metrics & code quality | ✅ Complete |
+| Phase 4 | Docker deployment | 🔄 In Progress |
+| Phase 5 | Expand document coverage (LTE, more 5G series) | 📅 Planned |
+| Phase 6 | Fine-tune embedding model on telecom domain | 📅 Planned |
+| Phase 7 | Cloud deployment (AWS/GCP) | 📅 Planned |
 
 ---
 
