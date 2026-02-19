@@ -760,7 +760,7 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 
 **Eric Costa**
 Email: ericcosta.public@gmail.com
-LinkedIn: [linkedin.com/in/niloyericcosta](https://linkedin.com/in/niloyericcosta)
+LinkedIn: [linkedin.com/in/niloyericcosta](https://linkedin.com/in/ericcostanil)
 GitHub: [github.com/ericnc09](https://github.com/ericnc09)
 
 ---
