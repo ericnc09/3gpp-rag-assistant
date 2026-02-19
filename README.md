@@ -30,7 +30,7 @@ Supported by Claude Code, this is an AI-powered Retrieval-Augmented Generation (
 
 ## 🎯 Project Overview
 
-During my work on 5G network deployments at Rogers Communications, I noticed engineers spending hours manually searching through 3GPP specifications to answer basic architecture questions. A single query could mean skimming through hundreds of pages across multiple documents.
+During my work on 5G network deployments at Rogers Communications, I noticed engineers spending hours manually searching through 3GPP specifications to answer basic architecture questions. A single query could mean skimming through hundreds of pages across multiple documents. Traditional searches often lead to answers which are not valid - old blog posts etc. I wanted to build a system which can provide converasational answers. Almost everything we built is based on open-source systems, we do stand on the shoulder of giants to make it possible!
 
 This RAG system automates that process using:
 
