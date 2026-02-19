@@ -16,10 +16,12 @@ Run:
 Interactive docs:
     http://localhost:8000/docs
 """
+import json
 import uuid
 import time
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, Optional
 from contextlib import asynccontextmanager
 
@@ -30,7 +32,7 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from src.api.models import (
     QueryRequest, QueryResponse, SourceDocument,
     HistoryResponse, HistoryMessage,
-    HealthResponse, StatsResponse, ErrorResponse,
+    HealthResponse, StatsResponse, EvalResponse, ErrorResponse,
 )
 from src.core.rag_chain import RAGChain
 from src.core.vector_store import VectorStore
@@ -232,8 +234,6 @@ async def query_stream(request: QueryRequest):
 
     session_id, chain = _get_or_create_session(request.session_id)
 
-    import json
-
     async def event_generator():
         try:
             for chunk in chain.stream_query(
@@ -378,6 +378,43 @@ async def metrics():
     return app_state.metrics.summary()
 
 
+@app.get(
+    "/eval",
+    response_model=EvalResponse,
+    summary="Latest evaluation results",
+    description=(
+        "Returns the most recent pipeline evaluation results (retrieval quality, "
+        "answer quality, and latency benchmarks). "
+        "Run `python scripts/eval_retrieval.py [--full]` to refresh."
+    ),
+    tags=["System"],
+)
+async def eval_results():
+    """
+    Return the latest saved evaluation results from data/eval_results.json.
+
+    If no results exist yet, returns available=False with empty fields.
+    Regenerate by running: python scripts/eval_retrieval.py --full
+    """
+    eval_path = Path("data/eval_results.json")
+    if not eval_path.exists():
+        return EvalResponse(available=False)
+
+    try:
+        with open(eval_path) as f:
+            data = json.load(f)
+        return EvalResponse(
+            available=True,
+            evaluated_at=data.get("evaluated_at"),
+            config=data.get("config"),
+            summary=data.get("summary"),
+            cases=data.get("cases"),
+        )
+    except Exception as e:
+        logger.error(f"Failed to read eval results: {e}")
+        return EvalResponse(available=False)
+
+
 @app.get("/", include_in_schema=False)
 async def root():
     return {
@@ -385,4 +422,5 @@ async def root():
         "version": "1.0.0",
         "docs": "/docs",
         "health": "/health",
+        "eval": "/eval",
     }

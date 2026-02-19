@@ -1,0 +1,138 @@
+{
+  "evaluated_at": "2026-02-19T15:03:31.214798Z",
+  "config": {
+    "top_k": 5,
+    "full_eval": false,
+    "total_chunks": 44290
+  },
+  "summary": {
+    "retrieval": {
+      "pass_rate": 0.6,
+      "passed": 6,
+      "total": 10,
+      "avg_context_precision": 1.0,
+      "avg_context_recall": 0.8,
+      "avg_similarity": 0.51
+    },
+    "answer": {},
+    "latency": {
+      "retrieve": {
+        "p50": 0.0497,
+        "p95": 0.3905,
+        "mean": 0.1632
+      }
+    }
+  },
+  "cases": [
+    {
+      "query": "What is gNB?",
+      "retrieval_pass": false,
+      "context_precision": 1.0,
+      "context_recall": 0.5,
+      "avg_similarity": 0.486,
+      "min_similarity": 0.5,
+      "top_source": "38401-h20.docx",
+      "num_results": 5,
+      "retrieve_time": 0.2523
+    },
+    {
+      "query": "Explain the 5G protocol stack",
+      "retrieval_pass": true,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "avg_similarity": 0.503,
+      "min_similarity": 0.5,
+      "top_source": "38300-j10.docx",
+      "num_results": 5,
+      "retrieve_time": 0.0435
+    },
+    {
+      "query": "What are the NG-RAN functions?",
+      "retrieval_pass": true,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "avg_similarity": 0.545,
+      "min_similarity": 0.5,
+      "top_source": "38401-j00.docx",
+      "num_results": 5,
+      "retrieve_time": 0.0486
+    },
+    {
+      "query": "How does handover work in 5G?",
+      "retrieval_pass": true,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "avg_similarity": 0.515,
+      "min_similarity": 0.45,
+      "top_source": "38300-h30.docx",
+      "num_results": 5,
+      "retrieve_time": 0.051
+    },
+    {
+      "query": "What is the NR physical layer?",
+      "retrieval_pass": false,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "avg_similarity": 0.495,
+      "min_similarity": 0.5,
+      "top_source": "38300-g10.docx",
+      "num_results": 5,
+      "retrieve_time": 0.0497
+    },
+    {
+      "query": "What is the difference between SA and NSA 5G deployments?",
+      "retrieval_pass": false,
+      "context_precision": 1.0,
+      "context_recall": 0.5,
+      "avg_similarity": 0.374,
+      "min_similarity": 0.45,
+      "top_source": "38300-i80.docx",
+      "num_results": 5,
+      "retrieve_time": 0.6191
+    },
+    {
+      "query": "Describe the F1 interface between gNB-CU and gNB-DU",
+      "retrieval_pass": true,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "avg_similarity": 0.679,
+      "min_similarity": 0.45,
+      "top_source": "38401-h11.docx",
+      "num_results": 5,
+      "retrieve_time": 0.1189
+    },
+    {
+      "query": "What is E1 interface used for in 5G?",
+      "retrieval_pass": false,
+      "context_precision": 1.0,
+      "context_recall": 0.0,
+      "avg_similarity": 0.397,
+      "min_similarity": 0.45,
+      "top_source": "38401-h11.docx",
+      "num_results": 5,
+      "retrieve_time": 0.3905
+    },
+    {
+      "query": "How is QoS managed in NG-RAN?",
+      "retrieval_pass": true,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "avg_similarity": 0.577,
+      "min_similarity": 0.45,
+      "top_source": "38300-f50.docx",
+      "num_results": 5,
+      "retrieve_time": 0.0409
+    },
+    {
+      "query": "What is Xn interface?",
+      "retrieval_pass": true,
+      "context_precision": 1.0,
+      "context_recall": 1.0,
+      "avg_similarity": 0.53,
+      "min_similarity": 0.45,
+      "top_source": "38300-g50.docx",
+      "num_results": 5,
+      "retrieve_time": 0.0176
+    }
+  ]
+}

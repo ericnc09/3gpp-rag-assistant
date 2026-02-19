@@ -100,6 +100,33 @@ class StatsResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Eval endpoint
+# ---------------------------------------------------------------------------
+
+class EvalResponse(BaseModel):
+    """Response body for GET /eval"""
+    evaluated_at: Optional[str] = Field(
+        default=None,
+        description="ISO-8601 timestamp of when the evaluation was last run"
+    )
+    config: Optional[dict] = Field(
+        default=None,
+        description="Evaluation configuration (top_k, full_eval, total_chunks)"
+    )
+    summary: Optional[dict] = Field(
+        default=None,
+        description="Aggregated retrieval, answer, and latency metrics"
+    )
+    cases: Optional[List[dict]] = Field(
+        default=None,
+        description="Per-query results"
+    )
+    available: bool = Field(
+        description="False if no eval results exist yet (run eval script first)"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Error response
 # ---------------------------------------------------------------------------
 
