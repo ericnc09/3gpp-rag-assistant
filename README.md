@@ -22,8 +22,9 @@ Supported by Claude Code, this is an AI-powered Retrieval-Augmented Generation (
 9. [Testing](#-testing)
 10. [Performance Metrics](#-performance-metrics)
 11. [Product Development Roadmap](#-product-development-roadmap)
-12. [Contributing](#-contributing)
-13. [License](#-license)
+12. [Deployment](#-deployment)
+13. [Contributing](#-contributing)
+14. [License](#-license)
 14. [Contact](#-contact)
 
 ---
@@ -658,6 +659,65 @@ Week 3: Polish & Deploy       ████████████████�
 | Phase 5 | Expand document coverage (LTE, more 5G series) | 📅 Planned |
 | Phase 6 | Fine-tune embedding model on telecom domain | 📅 Planned |
 | Phase 7 | Cloud deployment (AWS/GCP) | 📅 Planned |
+
+---
+
+## 🐳 Deployment
+
+### Option A — Local (recommended for development)
+
+```bash
+# 1. Create and activate virtual environment
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt && pip install -e .
+
+# 2. Start Ollama and pull a model
+ollama serve &
+ollama pull llama3.2
+
+# 3. Build the vector index (once, or after adding new docs)
+python src/core/document_processor.py
+python scripts/build_index.py
+
+# 4. Start both services with one command
+./scripts/start.sh          # starts API on :8000 and UI on :8501
+
+# Or start individually
+./scripts/start.sh api      # API only
+./scripts/start.sh ui       # UI only
+./scripts/start.sh stop     # stop both
+./scripts/start.sh status   # check status
+```
+
+### Option B — Docker Compose (recommended for deployment)
+
+```bash
+# 1. Copy and edit environment config
+cp .env.example .env
+
+# 2. Start all services (API + UI + Ollama)
+docker compose up -d
+
+# 3. Pull an LLM model (first time only)
+docker compose exec ollama ollama pull llama3.2
+
+# 4. Build the vector index (first time only)
+docker compose run --rm api python src/core/document_processor.py
+docker compose run --rm api python scripts/build_index.py
+
+# 5. Open the UI
+open http://localhost:8501
+```
+
+### Services
+
+| Service | URL | Description |
+|---|---|---|
+| Streamlit UI | http://localhost:8501 | Chat interface |
+| FastAPI | http://localhost:8000 | REST API |
+| API Docs | http://localhost:8000/docs | Interactive OpenAPI docs |
+| Health | http://localhost:8000/health | Component health check |
+| Eval Results | http://localhost:8000/eval | Latest retrieval evaluation |
 
 ---
 
