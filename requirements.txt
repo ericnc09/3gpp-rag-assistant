@@ -1,8 +1,9 @@
 # Core dependencies
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-pydantic==2.5.3
-pydantic-settings==2.1.0
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.3
+pydantic-settings>=2.1.0
+httpx>=0.24.0
 
 # Local LLM (zero cost - requires Ollama: https://ollama.com)
 ollama>=0.1.8
@@ -20,7 +21,8 @@ pypdf==4.0.1
 python-multipart==0.0.6
 
 # Frontend
-streamlit==1.30.0
+streamlit>=1.30.0
+requests>=2.31.0
 
 # Data Processing
 pandas==2.1.4
