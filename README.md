@@ -5,7 +5,7 @@ Supported by Claude Code, this is an AI-powered Retrieval-Augmented Generation (
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Tests](https://img.shields.io/badge/tests-152%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-160%20passing-brightgreen.svg)](#testing)
 
 ---
 
@@ -243,7 +243,15 @@ All models run locally via [Ollama](https://ollama.com):
 ┌─────────────────────────────────────────────────────────┐
 │                  data/raw/                              │
 │        3GPP Specification Files                         │
-│   TS 38.300, TS 38.401, TS 23.501 ...                  │
+│   5G/RAN/  •  5G/CORE/  •  LTE/RAN/  •  LTE/CORE/    │
+│   (download via scripts/download_specs.py)             │
+└─────────────────────────────────────────────────────────┘
+           ▲
+           │
+┌─────────────────────────────────────────────────────────┐
+│               spec_catalog.py                           │
+│   37-spec catalog: FTP URLs, domain, generation tags   │
+│   infer_spec_from_filename() → metadata per chunk      │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -251,6 +259,7 @@ All models run locally via [Ollama](https://ollama.com):
 - **No cloud dependencies** — ChromaDB persists locally, Ollama runs locally
 - **Streaming first** — `rag_chain.stream_query()` yields tokens as they generate
 - **Modular components** — each layer is independently testable and swappable
+- **Metadata-driven filtering** — domain/generation stored per chunk; ChromaDB `where` clauses applied pre-retrieval so only relevant spec subsets are searched
 - **Graceful degradation** — clear error messages if Ollama isn't running
 
 ---
@@ -259,14 +268,17 @@ All models run locally via [Ollama](https://ollama.com):
 
 - 🔍 **Semantic Search** — finds conceptually relevant spec sections, not just keyword matches
 - 💬 **Natural Language Queries** — ask questions like "What is the gNB-CU/DU split?"
-- 📚 **Citation Tracking** — every answer includes source document name and similarity score
+- 📚 **Citation Tracking** — every answer includes source document, spec number, and similarity score
 - 💰 **Zero Cost** — fully local, no API keys, no subscriptions
 - 🔄 **Conversation Memory** — multi-turn conversations with context retention (configurable history depth)
 - 📡 **Streaming Responses** — answers stream token-by-token for instant feedback
 - 🗂️ **Multi-format Support** — indexes PDF, DOCX, and legacy DOC files
-- 🔎 **Source Filtering** — restrict queries to a specific spec document
+- 🎛️ **Domain Filtering** — restrict queries to RAN or CORE, 5G or LTE — or search everything at once
+- 📖 **37-Spec Catalog** — curated coverage of 5G NR RAN, LTE RAN, 5G Core, and LTE Core specs
+- ⬇️ **Auto-Download** — `download_specs.py` fetches the latest version of each spec from the 3GPP FTP archive
+- 🔎 **Source Filtering** — restrict queries to a specific spec document by filename
 - 📊 **Performance Metrics** — per-query timing, aggregated stats, JSON export
-- 🧪 **82 Unit Tests** — fully mocked test suite that runs without any live services
+- 🧪 **160 Unit Tests** — fully mocked test suite that runs without any live services
 
 ---
 
@@ -311,18 +323,29 @@ ollama pull llama3.2
 ollama serve
 ```
 
-### Build the Index
+### Download Specs & Build the Index
 
 ```bash
-# Place your 3GPP spec files in data/raw/
-# Supports .pdf, .docx, .doc
+# Download the latest version of all supported specs from 3GPP FTP
+python scripts/download_specs.py
 
-# Process documents into chunks
-python src/core/document_processor.py
+# Download only 5G RAN specs
+python scripts/download_specs.py --generation 5G --domain RAN
 
-# Build the vector index (embeds all chunks)
+# Preview what would be downloaded without writing files
+python scripts/download_specs.py --dry-run
+
+# Build the vector index (deduplicates, tags with domain/generation metadata)
 python scripts/build_index.py
+
+# Rebuild from scratch (clears existing index)
+python scripts/build_index.py --clear
+
+# Index a single file
+python scripts/build_index.py --file data/raw/5G/RAN/38300.docx
 ```
+
+Or place your own `.pdf` / `.docx` / `.doc` files in `data/raw/` and run `build_index.py` directly.
 
 ### Query the Assistant
 
@@ -414,23 +437,25 @@ All models run **completely free** and locally:
 ```
 3gpp-rag-assistant/
 ├── src/
-│   ├── api/                        # FastAPI backend (Week 2)
-│   │   ├── main.py                 # API endpoints
-│   │   └── models.py               # Pydantic schemas
+│   ├── api/                        # FastAPI backend
+│   │   ├── main.py                 # API endpoints (query, catalog, eval, health)
+│   │   └── models.py               # Pydantic schemas (incl. domain/generation filters)
 │   ├── core/                       # Core RAG logic
 │   │   ├── document_processor.py   # Entry point: PDF/DOCX/DOC → chunks
-│   │   ├── embeddings.py           # Local embedding generation
-│   │   ├── vector_store.py         # ChromaDB wrapper
-│   │   ├── retriever.py            # Semantic search
+│   │   ├── embeddings.py           # Local embedding generation (bge-small default)
+│   │   ├── vector_store.py         # ChromaDB wrapper with metadata where-filters
+│   │   ├── retriever.py            # Semantic search with domain/generation filtering
 │   │   ├── llm.py                  # Ollama LLM client (stream + blocking)
-│   │   └── rag_chain.py            # Full RAG pipeline + conversation memory
+│   │   ├── rag_chain.py            # Full RAG pipeline + conversation memory
+│   │   └── spec_catalog.py         # 37-spec catalog (5G/LTE × RAN/CORE) + FTP URLs
 │   ├── utils/
 │   │   ├── logger.py               # Structured logging
 │   │   └── metrics.py              # Per-query timing + aggregated stats
-│   └── frontend/                   # Streamlit UI (Week 2)
-│       └── app.py
+│   └── frontend/                   # Streamlit UI
+│       └── app.py                  # Chat UI with Generation/Domain filter panel
 ├── scripts/
-│   ├── build_index.py              # Build ChromaDB vector index
+│   ├── download_specs.py           # Download latest specs from 3GPP FTP archive
+│   ├── build_index.py              # Build ChromaDB index with spec metadata
 │   ├── query.py                    # CLI query interface
 │   └── eval_retrieval.py           # Retrieval + answer quality evaluation
 ├── tests/
@@ -441,12 +466,22 @@ All models run **completely free** and locally:
 │   ├── test_llm.py                 # 9 tests
 │   ├── test_rag_chain.py           # 14 tests
 │   ├── test_metrics.py             # 21 tests
+│   ├── test_api.py                 # 30 tests
+│   ├── test_eval.py                # 40 tests
 │   └── test_integration.py         # Integration tests (requires live index)
 ├── data/
 │   ├── raw/                        # 3GPP specification files (.pdf/.docx/.doc)
-│   └── processed/                  # Chunked documents (chunks.json)
+│   │   ├── 5G/RAN/                 # Downloaded 5G RAN specs
+│   │   ├── 5G/CORE/                # Downloaded 5G Core specs
+│   │   ├── LTE/RAN/                # Downloaded LTE RAN specs
+│   │   └── LTE/CORE/               # Downloaded LTE Core specs
+│   └── processed/                  # Chunked documents cache (optional)
 ├── docs/
-│   └── GETTING_STARTED.md
+│   ├── GETTING_STARTED.md
+│   ├── demo_slide.md               # Demo slide content
+│   └── demo_qa.md                  # Demo Q&A prep
+├── Dockerfile
+├── docker-compose.yml
 ├── requirements.txt
 ├── .env.example
 └── README.md
@@ -457,7 +492,7 @@ All models run **completely free** and locally:
 ## 🧪 Testing
 
 ```bash
-# Run all unit tests (82 tests, no live services needed)
+# Run all unit tests (160 tests, no live services needed)
 pytest tests/ --ignore=tests/test_integration.py
 
 # Run with coverage report
@@ -483,7 +518,9 @@ python scripts/eval_retrieval.py --full --output data/eval_results.json
 | `llm.py` | 9 | 61% |
 | `rag_chain.py` | 14 | 75% |
 | `metrics.py` | 21 | 77% |
-| **Total** | **82** | — |
+| `api/main.py` | 30 | — |
+| `eval_retrieval.py` | 40 | — |
+| **Total** | **160** | — |
 
 ---
 
@@ -532,7 +569,8 @@ This project follows a 3-week sprint structure from a working RAG prototype to a
 ```
 Week 1: Core RAG Pipeline     ████████████████████  ✅ Complete
 Week 2: API & Frontend        ████████████████████  ✅ Complete
-Week 3: Polish & Deploy       ████████████████░░░░  🔄 In Progress
+Week 3: Polish & Deploy       ████████████████████  ✅ Complete
+Phase 2: Multi-Spec Filtering ████████████████████  ✅ Complete
 ```
 
 ---
@@ -639,25 +677,50 @@ Week 3: Polish & Deploy       ████████████████�
 - [x] Updated roadmap progress bars
 - [x] Updated performance metrics with real eval results
 
-#### Days 20–21: Deployment Prep
-- [ ] `Dockerfile` for the API service
-- [ ] `docker-compose.yml` (API + Ollama sidecar)
-- [ ] `.env.example` with all configurable variables
-- [ ] `scripts/start.sh` convenience startup script
-- [ ] Git tag `v1.0.0`
+#### Days 20–21: Deployment Prep ✅
+- [x] `Dockerfile` — multi-stage build (builder + runtime, non-root user, HEALTHCHECK)
+- [x] `docker-compose.yml` — three services: ollama, api, ui
+- [x] `.env.example` — full configuration reference with model size guide
+- [x] `scripts/start.sh` — subcommands: `all|api|ui|stop|status`
+- [x] Git tag `v1.0.0`
 
 ---
 
-### Phase Roadmap (Post-Sprint)
+### ✅ Phase 2: Multi-Spec RAG with Domain Filtering — COMPLETE
+
+#### Spec Catalog & Download
+- [x] `src/core/spec_catalog.py` — 37 curated specs: 5G NR RAN (19), LTE RAN (11), 5G Core (4), LTE Core (3)
+- [x] `scripts/download_specs.py` — fetches latest ZIP per spec from 3GPP FTP, extracts `.docx/.doc`; supports `--generation`, `--domain`, `--dry-run`, `--force`
+
+#### Metadata-Aware Indexing
+- [x] `build_index.py` rebuilt — deduplicates to latest version per spec, skips `-cl`/`-rm` companion files
+- [x] Every chunk tagged with `domain`, `generation`, `spec_number`, `spec_title`
+- [x] Fixed ID collision bug — multi-file indexing no longer overwrites earlier chunks
+
+#### Filtered Retrieval
+- [x] `VectorStore.query()` — accepts `where_filter` (ChromaDB `$and`/`$eq` clauses)
+- [x] `DocumentRetriever.retrieve()` — `domain` and `generation` params; pre-retrieval metadata filtering
+- [x] `RAGChain.query()` / `stream_query()` — threads filters end-to-end
+- [x] `GET /catalog` — lists all 37 specs with `indexed: true/false` per active filter
+
+#### UI Filter Panel
+- [x] Streamlit sidebar: Generation radio (All / 5G / LTE) + Domain radio (All / RAN / CORE)
+- [x] Active spec list with ✅ indexed / ⬜ not-yet-indexed status
+- [x] Scope indicator in chat header ("Scope: 5G RAN")
+- [x] Source cards show spec number + generation + domain badges
+
+---
+
+### Phase Roadmap
 
 | Phase | Description | Status |
 |---|---|---|
 | Phase 1 | Core RAG pipeline (local, zero cost) | ✅ Complete |
 | Phase 2 | REST API + Streamlit UI | ✅ Complete |
-| Phase 3 | Evaluation metrics & code quality | ✅ Complete |
-| Phase 4 | Docker deployment | 🔄 In Progress |
-| Phase 5 | Expand document coverage (LTE, more 5G series) | 📅 Planned |
-| Phase 6 | Fine-tune embedding model on telecom domain | 📅 Planned |
+| Phase 3 | Evaluation metrics, docs & Docker deployment | ✅ Complete |
+| Phase 4 | Multi-spec catalog with domain/generation filtering | ✅ Complete |
+| Phase 5 | Multi-document reasoning across spec boundaries | 📅 Planned |
+| Phase 6 | Hosted team version with auth + shared sessions | 📅 Planned |
 | Phase 7 | Cloud deployment (AWS/GCP) | 📅 Planned |
 
 ---
@@ -713,10 +776,11 @@ open http://localhost:8501
 
 | Service | URL | Description |
 |---|---|---|
-| Streamlit UI | http://localhost:8501 | Chat interface |
+| Streamlit UI | http://localhost:8501 | Chat interface with domain/generation filters |
 | FastAPI | http://localhost:8000 | REST API |
 | API Docs | http://localhost:8000/docs | Interactive OpenAPI docs |
 | Health | http://localhost:8000/health | Component health check |
+| Catalog | http://localhost:8000/catalog | All 37 specs with indexed status |
 | Eval Results | http://localhost:8000/eval | Latest retrieval evaluation |
 
 ---
