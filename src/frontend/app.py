@@ -79,6 +79,8 @@ def init_state():
         "session_id": None,
         "messages": [],          # [{role, content, sources, timing}]
         "api_online": False,
+        "filter_generation": "All",
+        "filter_domain": "All",
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -99,13 +101,26 @@ def check_api() -> dict:
         return {}
 
 
+def _active_filters():
+    """Return (domain, generation) as strings or None when set to 'All'."""
+    domain = st.session_state.filter_domain
+    generation = st.session_state.filter_generation
+    return (
+        None if domain == "All" else domain,
+        None if generation == "All" else generation,
+    )
+
+
 def post_query(question: str, source_filter: str, top_k: int) -> dict:
     """POST /query and return parsed JSON."""
+    domain, generation = _active_filters()
     payload = {
         "question": question,
         "session_id": st.session_state.session_id,
         "source_filter": source_filter or None,
         "top_k": top_k,
+        "domain": domain,
+        "generation": generation,
     }
     r = requests.post(f"{API_BASE}/query", json=payload, timeout=60)
     r.raise_for_status()
@@ -117,11 +132,14 @@ def stream_query(question: str, source_filter: str, top_k: int):
     POST /query/stream and yield parsed SSE chunks.
     Yields dicts: {type: sources|token|done|error, ...}
     """
+    domain, generation = _active_filters()
     payload = {
         "question": question,
         "session_id": st.session_state.session_id,
         "source_filter": source_filter or None,
         "top_k": top_k,
+        "domain": domain,
+        "generation": generation,
     }
     with requests.post(
         f"{API_BASE}/query/stream",
@@ -133,6 +151,15 @@ def stream_query(question: str, source_filter: str, top_k: int):
         for line in resp.iter_lines():
             if line and line.startswith(b"data: "):
                 yield json.loads(line[6:])
+
+
+def get_catalog() -> list:
+    """GET /catalog and return the list of specs."""
+    try:
+        r = requests.get(f"{API_BASE}/catalog", timeout=5)
+        return r.json().get("specs", [])
+    except Exception:
+        return []
 
 
 def get_stats() -> dict:
@@ -178,11 +205,61 @@ with st.sidebar:
 
     st.divider()
 
+    # -----------------------------------------------------------------------
+    # Spec filters
+    # -----------------------------------------------------------------------
+    st.markdown("### 📡 Spec Filters")
+    st.caption("Restrict retrieval to a subset of indexed specs.")
+
+    generation_choice = st.radio(
+        "Generation",
+        options=["All", "5G", "LTE"],
+        index=["All", "5G", "LTE"].index(st.session_state.filter_generation),
+        horizontal=True,
+        key="filter_generation",
+    )
+
+    domain_choice = st.radio(
+        "Domain",
+        options=["All", "RAN", "CORE"],
+        index=["All", "RAN", "CORE"].index(st.session_state.filter_domain),
+        horizontal=True,
+        key="filter_domain",
+    )
+
+    # Show which specs are active
+    if st.session_state.api_online:
+        catalog = get_catalog()
+        if catalog:
+            active_gen = None if generation_choice == "All" else generation_choice
+            active_dom = None if domain_choice == "All" else domain_choice
+            visible = [
+                s for s in catalog
+                if (not active_gen or s["generation"] == active_gen)
+                and (not active_dom or s["domain"] == active_dom)
+            ]
+            indexed = [s for s in visible if s.get("indexed")]
+            not_indexed = [s for s in visible if not s.get("indexed")]
+
+            with st.expander(f"Active specs ({len(indexed)} indexed)", expanded=False):
+                if indexed:
+                    for s in indexed:
+                        st.markdown(f"✅ **TS {s['spec_number']}** — {s['generation']} {s['domain']}")
+                if not_indexed:
+                    st.markdown("---")
+                    st.caption("Not yet indexed:")
+                    for s in not_indexed:
+                        st.markdown(f"⬜ TS {s['spec_number']} — {s['generation']} {s['domain']}")
+
+    st.divider()
+
+    # -----------------------------------------------------------------------
     # Query settings
+    # -----------------------------------------------------------------------
     st.markdown("### Query Settings")
     top_k = st.slider("Chunks to retrieve", min_value=1, max_value=15, value=5)
     source_filter = st.text_input(
-        "Filter by document",
+        "Filter by filename",
         placeholder="e.g. 38300",
         help="Only retrieve chunks from documents whose filename contains this string",
     )
@@ -234,9 +311,16 @@ with st.sidebar:
 # ---------------------------------------------------------------------------
 
 st.markdown('<div class="main-header">📡 3GPP RAG Assistant</div>', unsafe_allow_html=True)
+
+# Build active filter indicator
+_gen = st.session_state.filter_generation
+_dom = st.session_state.filter_domain
+_filter_parts = [p for p in [_gen if _gen != "All" else "", _dom if _dom != "All" else ""] if p]
+_filter_label = " · ".join(_filter_parts) if _filter_parts else "All specs"
 st.markdown(
-    '<div class="sub-header">Ask questions about 3GPP specifications — '
-    'fully local, zero cost, cited answers</div>',
+    f'<div class="sub-header">Ask questions about 3GPP specifications — '
+    f'fully local, zero cost, cited answers &nbsp;|&nbsp; '
+    f'<b>Scope: {_filter_label}</b></div>',
     unsafe_allow_html=True,
 )
 
@@ -264,9 +348,18 @@ def render_sources(sources: list):
         return
     with st.expander(f"📚 Sources ({len(sources)})", expanded=False):
         for s in sources:
+            spec_badge = ""
+            if s.get("spec_number") and s["spec_number"] != "unknown":
+                gen = s.get("generation", "")
+                dom = s.get("domain", "")
+                spec_badge = (
+                    f' <span class="similarity-badge">'
+                    f'TS {s["spec_number"]} · {gen} {dom}'
+                    f'</span>'
+                )
             st.markdown(
                 f'<div class="source-card">'
-                f'<b>{s["source"]}</b> '
+                f'<b>{s["source"]}</b>{spec_badge} '
                 f'<span class="similarity-badge">{s["similarity"]:.0%}</span><br>'
                 f'<small>{s["text"][:250]}{"..." if len(s["text"]) > 250 else ""}</small>'
                 f'</div>',

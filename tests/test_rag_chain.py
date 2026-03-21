@@ -76,14 +76,16 @@ class TestRAGChainQuery:
         chain, mock_retriever, _ = _make_chain()
         chain.query("gNB", source_filter="38300")
         mock_retriever.retrieve.assert_called_once_with(
-            "gNB", top_k=None, source_filter="38300"
+            "gNB", top_k=None, source_filter="38300",
+            domain=None, generation=None,
         )
 
     def test_query_passes_top_k_override(self):
         chain, mock_retriever, _ = _make_chain()
         chain.query("gNB", top_k=3)
         mock_retriever.retrieve.assert_called_once_with(
-            "gNB", top_k=3, source_filter=None
+            "gNB", top_k=3, source_filter=None,
+            domain=None, generation=None,
         )
 
     def test_query_empty_result_when_no_docs(self):

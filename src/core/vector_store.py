@@ -60,76 +60,89 @@ class VectorStore:
     
     def add_chunks(self, chunks: List[Dict]) -> None:
         """
-        Add chunks with embeddings to the vector store
-        
+        Add chunks with embeddings to the vector store.
+
+        Stores domain, generation, spec_number, and spec_title alongside the
+        standard source/chunk_index fields so queries can be filtered by them.
+
         Args:
-            chunks: List of chunks with 'text', 'embedding', and 'metadata' fields
+            chunks: List of chunks with 'text', 'embedding', and 'metadata' fields.
+                    metadata may include: source, chunk_index, chunk_size,
+                    domain, generation, spec_number, spec_title.
         """
         logger.info(f"Adding {len(chunks)} chunks to vector store")
-        
-        # Prepare data for ChromaDB
+
         ids = []
         embeddings = []
         documents = []
         metadatas = []
-        
+
+        # Use current collection size as offset so IDs are globally unique
+        # across multiple add_chunks() calls.
+        id_offset = self.collection.count()
         for i, chunk in enumerate(chunks):
-            # Generate unique ID
-            #chunk_id = f"chunk_{chunk.get('chunk_id', i)}"
-            #ids.append(chunk_id)
-            chunk_id = f"id_{i}" 
+            chunk_id = f"id_{id_offset + i}"
             ids.append(chunk_id)
-            # Add embedding
             embeddings.append(chunk['embedding'])
-            
-            # Add document text
             documents.append(chunk['text'])
-            
-            # Add metadata (ChromaDB requires dict, not nested dicts)
+
+            meta = chunk.get('metadata', {})
             metadata = {
-                "source": chunk['metadata'].get('source', 'unknown'),
-                "chunk_index": chunk['metadata'].get('chunk_index', i),
-                "chunk_size": chunk['metadata'].get('chunk_size', len(chunk['text']))
+                "source":      meta.get('source', 'unknown'),
+                "chunk_index": meta.get('chunk_index', i),
+                "chunk_size":  meta.get('chunk_size', len(chunk['text'])),
+                # Catalog fields — default to "unknown" so where-filters still work
+                "domain":      meta.get('domain', 'unknown'),
+                "generation":  meta.get('generation', 'unknown'),
+                "spec_number": meta.get('spec_number', 'unknown'),
+                "spec_title":  meta.get('spec_title', 'unknown'),
             }
             metadatas.append(metadata)
-        
-        # Add to collection in batches (ChromaDB has limits)
+
+        # Add in batches (ChromaDB per-call limit)
         batch_size = 100
         for i in range(0, len(ids), batch_size):
             batch_end = min(i + batch_size, len(ids))
-            
             self.collection.add(
                 ids=ids[i:batch_end],
                 embeddings=embeddings[i:batch_end],
                 documents=documents[i:batch_end],
-                metadatas=metadatas[i:batch_end]
+                metadatas=metadatas[i:batch_end],
             )
-            
             logger.info(f"Added batch {i//batch_size + 1}/{(len(ids)-1)//batch_size + 1}")
-        
+
         logger.info(f"Successfully added {len(chunks)} chunks")
     
     def query(
         self,
         query_embedding: List[float],
-        n_results: int = 5
+        n_results: int = 5,
+        where_filter: Optional[Dict] = None,
     ) -> Dict:
         """
-        Query the vector store
-        
+        Query the vector store with optional metadata filtering.
+
         Args:
-            query_embedding: Embedding vector of the query
-            n_results: Number of results to return
-            
+            query_embedding: Embedding vector of the query.
+            n_results: Number of results to return.
+            where_filter: ChromaDB ``where`` clause to restrict results to a
+                subset of chunks.  Examples::
+
+                    {"domain": "RAN"}
+                    {"generation": "5G"}
+                    {"$and": [{"domain": "RAN"}, {"generation": "5G"}]}
+
         Returns:
-            Dictionary with 'documents', 'metadatas', and 'distances'
+            Dictionary with 'documents', 'metadatas', and 'distances'.
         """
-        results = self.collection.query(
-            query_embeddings=[query_embedding],
-            n_results=n_results
-        )
-        
-        return results
+        kwargs: Dict = {
+            "query_embeddings": [query_embedding],
+            "n_results": n_results,
+        }
+        if where_filter:
+            kwargs["where"] = where_filter
+
+        return self.collection.query(**kwargs)
     
     def get_stats(self) -> Dict:
         """Get statistics about the vector store"""

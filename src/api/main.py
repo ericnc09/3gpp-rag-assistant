@@ -33,11 +33,13 @@ from src.api.models import (
     QueryRequest, QueryResponse, SourceDocument,
     HistoryResponse, HistoryMessage,
     HealthResponse, StatsResponse, EvalResponse, ErrorResponse,
+    CatalogResponse, CatalogSpec,
 )
 from src.core.rag_chain import RAGChain
 from src.core.vector_store import VectorStore
 from src.core.llm import OllamaLLM
 from src.core.retriever import DocumentRetriever
+from src.core.spec_catalog import CATALOG, infer_spec_from_filename
 from src.utils.logger import setup_logger
 from src.utils.metrics import MetricsTracker
 from src.config import settings
@@ -192,6 +194,8 @@ async def query(request: QueryRequest):
             question=request.question,
             source_filter=request.source_filter,
             top_k=request.top_k,
+            domain=request.domain,
+            generation=request.generation,
         )
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e))
@@ -240,6 +244,8 @@ async def query_stream(request: QueryRequest):
                 question=request.question,
                 source_filter=request.source_filter,
                 top_k=request.top_k,
+                domain=request.domain,
+                generation=request.generation,
             ):
                 if chunk["type"] == "done":
                     chunk["session_id"] = session_id
@@ -413,6 +419,62 @@ async def eval_results():
     except Exception as e:
         logger.error(f"Failed to read eval results: {e}")
         return EvalResponse(available=False)
+
+
+@app.get(
+    "/catalog",
+    response_model=CatalogResponse,
+    summary="List all supported specs",
+    description=(
+        "Returns every spec in the catalog with its metadata. "
+        "Use domain and generation query params to filter the list."
+    ),
+    tags=["System"],
+)
+async def catalog(
+    domain: Optional[str] = None,
+    generation: Optional[str] = None,
+):
+    """Return the full spec catalog, optionally filtered by domain/generation.
+
+    The ``indexed`` field reflects whether a spec's chunks are present in the
+    current vector store (based on spec_number metadata).
+    """
+    # Determine which spec numbers are present in the vector store
+    indexed_specs: set = set()
+    if app_state.ready and app_state.vector_store:
+        try:
+            # Sample metadata from the collection to discover indexed spec numbers
+            result = app_state.vector_store.collection.get(
+                limit=10000,
+                include=["metadatas"],
+            )
+            for meta in result.get("metadatas", []):
+                sn = meta.get("spec_number")
+                if sn and sn != "unknown":
+                    indexed_specs.add(sn)
+        except Exception:
+            pass  # Best-effort; if it fails just mark all as not indexed
+
+    entries = CATALOG
+    if domain:
+        entries = [e for e in entries if e["domain"] == domain]
+    if generation:
+        entries = [e for e in entries if e["generation"] == generation]
+
+    specs = [
+        CatalogSpec(
+            spec_number=e["spec_number"],
+            title=e["title"],
+            domain=e["domain"],
+            generation=e["generation"],
+            description=e["description"],
+            indexed=e["spec_number"] in indexed_specs,
+        )
+        for e in entries
+    ]
+
+    return CatalogResponse(total=len(specs), specs=specs)
 
 
 @app.get("/", include_in_schema=False)

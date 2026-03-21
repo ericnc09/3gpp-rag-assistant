@@ -4,7 +4,7 @@ Pydantic schemas for the 3GPP RAG Assistant API
 Request and response models for all endpoints.
 """
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Literal, Optional
 from datetime import datetime
 
 
@@ -35,6 +35,14 @@ class QueryRequest(BaseModel):
         le=20,
         description="Number of document chunks to retrieve (default: 5)"
     )
+    domain: Optional[Literal["RAN", "CORE"]] = Field(
+        default=None,
+        description="Restrict retrieval to RAN or CORE specs only. Omit to search all domains."
+    )
+    generation: Optional[Literal["5G", "LTE"]] = Field(
+        default=None,
+        description="Restrict retrieval to 5G or LTE specs only. Omit to search all generations."
+    )
 
 
 class SourceDocument(BaseModel):
@@ -42,6 +50,10 @@ class SourceDocument(BaseModel):
     source: str = Field(description="Source document filename")
     similarity: float = Field(description="Semantic similarity score (0-1)")
     text: str = Field(description="Preview of the retrieved chunk text")
+    domain: Optional[str] = Field(default=None, description="'RAN' or 'CORE'")
+    generation: Optional[str] = Field(default=None, description="'5G' or 'LTE'")
+    spec_number: Optional[str] = Field(default=None, description="e.g. '38.300'")
+    spec_title: Optional[str] = Field(default=None, description="Human-readable spec title")
 
 
 class QueryResponse(BaseModel):
@@ -134,3 +146,23 @@ class ErrorResponse(BaseModel):
     """Standard error response"""
     error: str
     detail: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Catalog endpoint
+# ---------------------------------------------------------------------------
+
+class CatalogSpec(BaseModel):
+    """A single entry from the spec catalog"""
+    spec_number: str
+    title: str
+    domain: str
+    generation: str
+    description: str
+    indexed: bool = Field(description="True if this spec has been indexed in the vector store")
+
+
+class CatalogResponse(BaseModel):
+    """Response body for GET /catalog"""
+    total: int
+    specs: List[CatalogSpec]

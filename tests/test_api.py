@@ -205,14 +205,16 @@ class TestQuery:
         client.post("/query",
                     json={"question": "gNB", "source_filter": "38300"})
         mock_rag_chain.query.assert_called_once_with(
-            question="gNB", source_filter="38300", top_k=None
+            question="gNB", source_filter="38300", top_k=None,
+            domain=None, generation=None,
         )
 
     def test_query_with_top_k_override(self, client, mock_rag_chain):
         client.post("/query",
                     json={"question": "gNB architecture", "top_k": 3})
         mock_rag_chain.query.assert_called_once_with(
-            question="gNB architecture", source_filter=None, top_k=3
+            question="gNB architecture", source_filter=None, top_k=3,
+            domain=None, generation=None,
         )
 
     def test_query_503_when_not_ready(self, client):

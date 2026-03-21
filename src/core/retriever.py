@@ -55,11 +55,34 @@ class DocumentRetriever:
         self.top_k = top_k
         logger.info(f"Initialized DocumentRetriever (top_k={top_k})")
     
+    @staticmethod
+    def _build_where_filter(
+        domain: Optional[str] = None,
+        generation: Optional[str] = None,
+    ) -> Optional[Dict]:
+        """Build a ChromaDB ``where`` clause from domain/generation filters.
+
+        Returns None when no filters are requested (search entire collection).
+        """
+        conditions = []
+        if domain:
+            conditions.append({"domain": domain})
+        if generation:
+            conditions.append({"generation": generation})
+
+        if not conditions:
+            return None
+        if len(conditions) == 1:
+            return conditions[0]
+        return {"$and": conditions}
+
     def retrieve(
         self,
         query: str,
         top_k: Optional[int] = None,
         source_filter: Optional[str] = None,
+        domain: Optional[str] = None,
+        generation: Optional[str] = None,
     ) -> List[Dict]:
         """Retrieve the most semantically similar chunks for a query.
 
@@ -67,9 +90,11 @@ class DocumentRetriever:
             query: Natural language question or search string.
             top_k: Override the default number of results for this call.
             source_filter: If set, only return chunks whose source filename
-                contains this string (e.g. "38401" to limit to TS 38.401).
-                Extra results are fetched internally to compensate for
-                filtered-out items.
+                contains this string (e.g. "38401"). Applied post-retrieval.
+            domain: If set, restrict retrieval to "RAN" or "CORE" chunks.
+                Applied via ChromaDB metadata filter (pre-retrieval).
+            generation: If set, restrict retrieval to "5G" or "LTE" chunks.
+                Applied via ChromaDB metadata filter (pre-retrieval).
 
         Returns:
             List of chunk dicts, each with keys:
@@ -77,47 +102,56 @@ class DocumentRetriever:
                 - source      (str)   : filename of the source document
                 - chunk_index (int)   : position of the chunk in its document
                 - similarity  (float) : cosine similarity in [0, 1]
+                - domain      (str)   : "RAN" | "CORE" | "unknown"
+                - generation  (str)   : "5G" | "LTE" | "unknown"
+                - spec_number (str)   : e.g. "38.300"
+                - spec_title  (str)   : human-readable spec title
             Sorted descending by similarity, length <= top_k.
         """
         k = top_k or self.top_k
-        
-        logger.info(f"Retrieving documents for query: '{query[:50]}...'")
-        
-        # Generate query embedding
+
+        logger.info(
+            f"Retrieving documents for query: '{query[:50]}...' "
+            f"[domain={domain}, generation={generation}]"
+        )
+
         query_embedding = self.embedding_generator.generate_embedding(query)
-        
-        # Search vector store (get extra for filtering)
+
+        where_filter = self._build_where_filter(domain=domain, generation=generation)
+
+        # Fetch extra results when post-retrieval source_filter is also active
+        n_fetch = k * 2 if source_filter else k
+
         results = self.vector_store.query(
             query_embedding=query_embedding,
-            n_results=k * 2 if source_filter else k
+            n_results=n_fetch,
+            where_filter=where_filter,
         )
-        
-        # Format results
+
         retrieved_docs = []
         for doc, metadata, distance in zip(
             results['documents'][0],
             results['metadatas'][0],
-            results['distances'][0]
+            results['distances'][0],
         ):
-            # Apply source filter if specified
             if source_filter and source_filter not in metadata.get('source', ''):
                 continue
-            
-            # Calculate similarity score (1 - distance)
-            similarity = 1 - distance
-            
+
             retrieved_docs.append({
-                'text': doc,
-                'source': metadata.get('source', 'unknown'),
+                'text':        doc,
+                'source':      metadata.get('source', 'unknown'),
                 'chunk_index': metadata.get('chunk_index', 0),
-                'similarity': similarity
+                'similarity':  1 - distance,
+                'domain':      metadata.get('domain', 'unknown'),
+                'generation':  metadata.get('generation', 'unknown'),
+                'spec_number': metadata.get('spec_number', 'unknown'),
+                'spec_title':  metadata.get('spec_title', 'unknown'),
             })
-            
+
             if len(retrieved_docs) >= k:
                 break
-        
+
         logger.info(f"Retrieved {len(retrieved_docs)} documents")
-        
         return retrieved_docs
     
     def format_context(self, documents: List[Dict]) -> str:
@@ -134,10 +168,13 @@ class DocumentRetriever:
             Returns an empty string if documents is empty.
         """
         context_parts = []
-        
+
         for i, doc in enumerate(documents, 1):
+            spec_info = ""
+            if doc.get("spec_number") and doc["spec_number"] != "unknown":
+                spec_info = f", Spec: TS {doc['spec_number']}"
             context_parts.append(
-                f"[Document {i}] (Source: {doc['source']}, Similarity: {doc['similarity']:.3f})\n"
+                f"[Document {i}] (Source: {doc['source']}{spec_info}, Similarity: {doc['similarity']:.3f})\n"
                 f"{doc['text']}\n"
             )
         

@@ -75,6 +75,8 @@ class RAGChain:
         question: str,
         source_filter: Optional[str] = None,
         top_k: Optional[int] = None,
+        domain: Optional[str] = None,
+        generation: Optional[str] = None,
     ) -> Dict:
         """
         Run a single RAG query (blocking).
@@ -83,39 +85,42 @@ class RAGChain:
             question: Natural language question
             source_filter: Restrict retrieval to a specific document name
             top_k: Override the default number of retrieved chunks
+            domain: Restrict to "RAN" or "CORE" specs
+            generation: Restrict to "5G" or "LTE" specs
 
         Returns:
             {
                 "answer":      str,
-                "sources":     [{"source": str, "similarity": float, "text": str}],
-                "context":     str,       # raw context fed to the LLM
-                "query_time":  float,     # total seconds
+                "sources":     [{"source", "similarity", "text", "domain",
+                                 "generation", "spec_number", "spec_title"}],
+                "context":     str,
+                "query_time":  float,
                 "retrieve_time": float,
                 "generate_time": float,
             }
         """
         start = time.time()
 
-        # 1. Retrieve relevant chunks
         t0 = time.time()
         docs = self.retriever.retrieve(
-            question, top_k=top_k, source_filter=source_filter
+            question,
+            top_k=top_k,
+            source_filter=source_filter,
+            domain=domain,
+            generation=generation,
         )
         retrieve_time = time.time() - t0
 
         if not docs:
             return self._empty_response(question, time.time() - start)
 
-        # 2. Build the prompt
         context = self.retriever.format_context(docs)
         prompt = PROMPT_TEMPLATE.format(context=context, question=question)
 
-        # 3. Generate answer
         t0 = time.time()
         answer = self.llm.generate(prompt, history=self._get_history())
         generate_time = time.time() - t0
 
-        # 4. Update conversation history
         self._add_to_history(question, answer)
 
         total_time = time.time() - start
@@ -126,14 +131,7 @@ class RAGChain:
 
         return {
             "answer": answer,
-            "sources": [
-                {
-                    "source": d["source"],
-                    "similarity": round(d["similarity"], 4),
-                    "text": d["text"][:300] + "..." if len(d["text"]) > 300 else d["text"],
-                }
-                for d in docs
-            ],
+            "sources": [self._format_source(d) for d in docs],
             "context": context,
             "query_time": round(total_time, 3),
             "retrieve_time": round(retrieve_time, 3),
@@ -145,11 +143,13 @@ class RAGChain:
         question: str,
         source_filter: Optional[str] = None,
         top_k: Optional[int] = None,
+        domain: Optional[str] = None,
+        generation: Optional[str] = None,
     ) -> Iterator[Dict]:
         """
         Stream a RAG query, yielding chunks as the LLM generates them.
 
-        Yields dicts of two types:
+        Yields dicts:
           {"type": "sources", "sources": [...], "context": str}  -- sent first
           {"type": "token",   "token": str}                      -- one per LLM token
           {"type": "done",    "query_time": float}               -- sent last
@@ -157,7 +157,11 @@ class RAGChain:
         start = time.time()
 
         docs = self.retriever.retrieve(
-            question, top_k=top_k, source_filter=source_filter
+            question,
+            top_k=top_k,
+            source_filter=source_filter,
+            domain=domain,
+            generation=generation,
         )
 
         if not docs:
@@ -169,16 +173,7 @@ class RAGChain:
         context = self.retriever.format_context(docs)
         prompt = PROMPT_TEMPLATE.format(context=context, question=question)
 
-        sources = [
-            {
-                "source": d["source"],
-                "similarity": round(d["similarity"], 4),
-                "text": d["text"][:300] + "..." if len(d["text"]) > 300 else d["text"],
-            }
-            for d in docs
-        ]
-
-        yield {"type": "sources", "sources": sources, "context": context}
+        yield {"type": "sources", "sources": [self._format_source(d) for d in docs], "context": context}
 
         full_answer = []
         for token in self.llm.stream(prompt, history=self._get_history()):
@@ -208,6 +203,20 @@ class RAGChain:
     def _add_to_history(self, question: str, answer: str) -> None:
         self._history.append({"role": "user", "content": question})
         self._history.append({"role": "assistant", "content": answer})
+
+    @staticmethod
+    def _format_source(doc: Dict) -> Dict:
+        """Serialise a retriever doc dict into the API source shape."""
+        text = doc["text"]
+        return {
+            "source":      doc["source"],
+            "similarity":  round(doc["similarity"], 4),
+            "text":        text[:300] + "..." if len(text) > 300 else text,
+            "domain":      doc.get("domain"),
+            "generation":  doc.get("generation"),
+            "spec_number": doc.get("spec_number"),
+            "spec_title":  doc.get("spec_title"),
+        }
 
     def _empty_response(self, question: str, elapsed: float) -> Dict:
         logger.warning(f"No documents retrieved for: '{question}'")
