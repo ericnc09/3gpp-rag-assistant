@@ -87,7 +87,16 @@ class UnifiedDocumentProcessor:
         
         # Check for DOC support (any method)
         doc_methods = []
-        
+
+        # Check textutil (built-in on macOS)
+        if sys.platform == 'darwin':
+            try:
+                import subprocess
+                subprocess.run(['textutil', '-info', '/dev/null'], capture_output=True)
+                doc_methods.append('textutil')
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                pass
+
         # Check antiword
         try:
             import subprocess
@@ -95,14 +104,14 @@ class UnifiedDocumentProcessor:
             doc_methods.append('antiword')
         except (subprocess.CalledProcessError, FileNotFoundError):
             pass
-        
+
         # Check textract
         try:
             import textract
             doc_methods.append('textract')
         except ImportError:
             pass
-        
+
         # Check win32com
         if sys.platform == 'win32':
             try:
@@ -187,9 +196,21 @@ class UnifiedDocumentProcessor:
     def _load_doc(self, file_path: Path) -> Tuple[str, Dict]:
         """Load legacy DOC file"""
         logger.info(f"Loading legacy DOC: {file_path}")
-        
-        # Try antiword first (best for Linux/Mac)
-        if 'antiword' in self.available_processors.get('doc_methods', []):
+
+        # Try textutil first (built-in on macOS, most reliable)
+        if 'textutil' in self.available_processors.get('doc_methods', []):
+            import subprocess
+            result = subprocess.run(
+                ['textutil', '-convert', 'txt', '-stdout', str(file_path)],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            text = result.stdout
+            method = 'textutil'
+
+        # Try antiword (Linux/Mac)
+        elif 'antiword' in self.available_processors.get('doc_methods', []):
             import subprocess
             result = subprocess.run(
                 ['antiword', str(file_path)],
@@ -199,7 +220,7 @@ class UnifiedDocumentProcessor:
             )
             text = result.stdout
             method = 'antiword'
-        
+
         # Try textract
         elif 'textract' in self.available_processors.get('doc_methods', []):
             import textract

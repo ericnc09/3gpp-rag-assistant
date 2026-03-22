@@ -5,7 +5,9 @@ Supported by Claude Code, this is an AI-powered Retrieval-Augmented Generation (
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Tests](https://img.shields.io/badge/tests-160%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-152%20passing-brightgreen.svg)](#testing)
+[![Specs](https://img.shields.io/badge/3GPP%20specs-37%20indexed-blue.svg)](#-features)
+[![Chunks](https://img.shields.io/badge/chunks-42%2C327-blue.svg)](#-features)
 
 ---
 
@@ -272,13 +274,14 @@ All models run locally via [Ollama](https://ollama.com):
 - 💰 **Zero Cost** — fully local, no API keys, no subscriptions
 - 🔄 **Conversation Memory** — multi-turn conversations with context retention (configurable history depth)
 - 📡 **Streaming Responses** — answers stream token-by-token for instant feedback
-- 🗂️ **Multi-format Support** — indexes PDF, DOCX, and legacy DOC files
+- 🗂️ **Multi-format Support** — indexes PDF, DOCX, and legacy DOC files (macOS `textutil`, `antiword`, or `textract`)
 - 🎛️ **Domain Filtering** — restrict queries to RAN or CORE, 5G or LTE — or search everything at once
 - 📖 **37-Spec Catalog** — curated coverage of 5G NR RAN, LTE RAN, 5G Core, and LTE Core specs
 - ⬇️ **Auto-Download** — `download_specs.py` fetches the latest version of each spec from the 3GPP FTP archive
 - 🔎 **Source Filtering** — restrict queries to a specific spec document by filename
 - 📊 **Performance Metrics** — per-query timing, aggregated stats, JSON export
-- 🧪 **160 Unit Tests** — fully mocked test suite that runs without any live services
+- 🧪 **152 Unit Tests** — fully mocked test suite that runs without any live services
+- 🖥️ **CPU-Stable Indexing** — `build_index_cpu.py` avoids MPS/GPU stalls on large files
 
 ---
 
@@ -456,6 +459,7 @@ All models run **completely free** and locally:
 ├── scripts/
 │   ├── download_specs.py           # Download latest specs from 3GPP FTP archive
 │   ├── build_index.py              # Build ChromaDB index with spec metadata
+│   ├── build_index_cpu.py          # CPU-only build (avoids MPS stalls on large files)
 │   ├── query.py                    # CLI query interface
 │   └── eval_retrieval.py           # Retrieval + answer quality evaluation
 ├── tests/
@@ -571,6 +575,7 @@ Week 1: Core RAG Pipeline     ████████████████�
 Week 2: API & Frontend        ████████████████████  ✅ Complete
 Week 3: Polish & Deploy       ████████████████████  ✅ Complete
 Phase 2: Multi-Spec Filtering ████████████████████  ✅ Complete
+Phase 3: Full Spec Coverage   ████████████████████  ✅ Complete
 ```
 
 ---
@@ -648,7 +653,7 @@ Phase 2: Multi-Spec Filtering ████████████████�
 
 ---
 
-### 🔄 Week 3 (Days 15–21): Polish & Deploy — IN PROGRESS
+### ✅ Week 3 (Days 15–21): Polish & Deploy — COMPLETE
 
 #### Days 15–16: Evaluation Metrics ✅
 - [x] RAGAS-inspired evaluation framework (`scripts/eval_retrieval.py`)
@@ -711,6 +716,27 @@ Phase 2: Multi-Spec Filtering ████████████████�
 
 ---
 
+### ✅ Phase 3: Full Spec Coverage & .doc Support — COMPLETE
+
+#### macOS `textutil` Support for Legacy .doc Files
+- [x] `document_processor_UNIFIED.py` — added macOS `textutil` as first-choice `.doc` extractor (built-in, no extra installs)
+- [x] Processor detection chain: `textutil` (macOS) → `antiword` → `textract` → `win32com` (Windows)
+- [x] All 74 legacy `.doc` files in the archive now processable on macOS out of the box
+
+#### Full 37-Spec Download & Indexing
+- [x] Downloaded all 37 specs (latest versions) from 3GPP FTP archive across all 4 categories
+- [x] 5G RAN (19 specs), LTE RAN (11), 5G Core (4), LTE Core (3) — ~100MB total
+- [x] Files organized under `data/raw/<generation>/<domain>/` with proper metadata tagging
+- [x] **42,327 chunks indexed** with domain, generation, spec_number, and spec_title metadata
+- [x] Domain/generation filtering now fully functional in UI and API
+
+#### CPU-Stable Index Builder
+- [x] `scripts/build_index_cpu.py` — forces CPU embedding to avoid Apple MPS GPU stalls on large files
+- [x] Sub-batch processing (500 chunks at a time) for stable memory usage
+- [x] Handles massive specs like TS 23.502 (3,735 chunks) and TS 38.331 (5,658 chunks) without stalling
+
+---
+
 ### Phase Roadmap
 
 | Phase | Description | Status |
@@ -719,9 +745,10 @@ Phase 2: Multi-Spec Filtering ████████████████�
 | Phase 2 | REST API + Streamlit UI | ✅ Complete |
 | Phase 3 | Evaluation metrics, docs & Docker deployment | ✅ Complete |
 | Phase 4 | Multi-spec catalog with domain/generation filtering | ✅ Complete |
-| Phase 5 | Multi-document reasoning across spec boundaries | 📅 Planned |
-| Phase 6 | Hosted team version with auth + shared sessions | 📅 Planned |
-| Phase 7 | Cloud deployment (AWS/GCP) | 📅 Planned |
+| Phase 5 | Full 37-spec coverage, .doc support, CPU-stable indexing | ✅ Complete |
+| Phase 6 | Multi-document reasoning across spec boundaries | 📅 Planned |
+| Phase 7 | Hosted team version with auth + shared sessions | 📅 Planned |
+| Phase 8 | Cloud deployment (AWS/GCP) | 📅 Planned |
 
 ---
 
