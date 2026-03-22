@@ -117,21 +117,26 @@ If the context does not contain enough information, say so."""
 # Resource loaders (cached)
 # ---------------------------------------------------------------------------
 
-@st.cache_resource(show_spinner="Loading vector database...")
-def load_vector_store():
-    """Load ChromaDB collection, downloading pre-built index if needed."""
-    import chromadb
-
+def _ensure_vectordb_downloaded():
+    """Download vector index if not present (called BEFORE cache)."""
     db_path = Path(VECTORDB_PATH)
-
-    # If vectordb doesn't exist locally, try downloading from release
     if not db_path.exists() or not any(db_path.iterdir()):
         url = VECTORDB_URL or st.secrets.get("VECTORDB_URL", "")
         if url:
-            st.toast("Downloading pre-built vector index... (one-time, ~460MB)")
+            st.toast("Downloading pre-built vector index... (one-time, ~230MB)")
             _download_and_extract(url, db_path)
-        else:
-            return None, None
+            return True
+    return False
+
+
+@st.cache_resource(show_spinner="Loading vector database...")
+def load_vector_store():
+    """Load ChromaDB collection (pure data — no Streamlit UI calls)."""
+    import chromadb
+
+    db_path = Path(VECTORDB_PATH)
+    if not db_path.exists():
+        return None, None
 
     client = chromadb.PersistentClient(path=str(db_path))
     try:
@@ -184,11 +189,10 @@ def _download_and_extract(url: str, dest: Path):
 
 @st.cache_resource(show_spinner="Connecting to Groq LLM...")
 def load_groq_client():
-    """Initialize Groq client."""
+    """Initialize Groq client (pure data — no Streamlit UI calls)."""
     try:
         from groq import Groq
     except ImportError:
-        st.error("groq package not installed")
         return None, None
 
     api_key = os.getenv("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY", "")
@@ -338,6 +342,10 @@ if "filter_domain" not in st.session_state:
 # Load resources
 # ---------------------------------------------------------------------------
 
+# Download vector index if needed (outside cache — uses st.toast/st.progress)
+_ensure_vectordb_downloaded()
+
+# Now load from cache (pure data, no UI calls)
 chroma_client, collection = load_vector_store()
 groq_client, groq_model = load_groq_client()
 
