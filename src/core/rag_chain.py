@@ -215,7 +215,7 @@ class RAGChain:
         return {
             "source":      doc["source"],
             "similarity":  round(doc["similarity"], 4),
-            "text":        text[:300] + "..." if len(text) > 300 else text,
+            "text":        text[:100] + "..." if len(text) > 100 else text,
             "domain":      doc.get("domain"),
             "generation":  doc.get("generation"),
             "spec_number": doc.get("spec_number"),

@@ -475,7 +475,7 @@ def render_sources(sources: list):
                     f'</span>'
                 )
             safe_source = html.escape(s["source"])
-            safe_text = html.escape(s["text"][:250]) + ("..." if len(s["text"]) > 250 else "")
+            safe_text = html.escape(s["text"][:100]) + ("..." if len(s["text"]) > 100 else "")
             st.markdown(
                 f'<div class="source-card">'
                 f'<b>{safe_source}</b>{spec_badge} '
@@ -592,3 +592,18 @@ if question:
         "sources": sources,
         "timing": elapsed,
     })
+
+# ---------------------------------------------------------------------------
+# Legal disclaimer (footer)
+# ---------------------------------------------------------------------------
+
+st.divider()
+st.caption(
+    "**Disclaimer:** This tool is an independent, non-commercial project and is "
+    "not affiliated with, endorsed by, or sponsored by 3GPP, ETSI, or any 3GPP "
+    "Organizational Partner. 3GPP specifications are publicly available from "
+    "[3gpp.org](https://www.3gpp.org). All specification content remains the "
+    "intellectual property of the respective rights holders. Answers are "
+    "AI-generated and may contain errors — always verify against the official "
+    "specifications."
+)
