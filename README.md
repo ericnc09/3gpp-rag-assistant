@@ -2,6 +2,8 @@
 
 Supported by Claude Code, this is an AI-powered Retrieval-Augmented Generation (RAG) system that makes navigating 3GPP technical specifications effortless. Ask questions in natural language and get accurate, cited answers from 5G/LTE documentation — **completely free, fully local, no API keys required.**
 
+**Use it here at** [3gpp RAG](https://3gpp-rag-assistant.streamlit.app/)
+
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
