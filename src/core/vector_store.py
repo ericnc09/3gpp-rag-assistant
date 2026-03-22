@@ -151,7 +151,6 @@ class VectorStore:
         return {
             "collection_name": self.collection_name,
             "total_chunks": count,
-            "persist_directory": str(self.persist_directory)
         }
     
     def clear(self) -> None:

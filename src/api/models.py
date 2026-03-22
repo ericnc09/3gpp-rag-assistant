@@ -3,7 +3,7 @@ Pydantic schemas for the 3GPP RAG Assistant API
 
 Request and response models for all endpoints.
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Literal, Optional
 from datetime import datetime
 
@@ -14,6 +14,8 @@ from datetime import datetime
 
 class QueryRequest(BaseModel):
     """Request body for POST /query"""
+    model_config = ConfigDict(extra="forbid")
+
     question: str = Field(
         ...,
         min_length=3,
@@ -23,10 +25,13 @@ class QueryRequest(BaseModel):
     )
     session_id: Optional[str] = Field(
         default=None,
-        description="Session ID for conversation history. A new session is created if omitted."
+        max_length=36,
+        pattern=r"^[a-f0-9\-]{36}$",
+        description="Session ID (UUID format). A new session is created if omitted."
     )
     source_filter: Optional[str] = Field(
         default=None,
+        max_length=100,
         description="Restrict retrieval to documents whose filename contains this string (e.g. '38300')"
     )
     top_k: Optional[int] = Field(

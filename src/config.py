@@ -13,8 +13,10 @@ Override any default by exporting the variable before starting the server:
 
 See ``.env.example`` in the project root for a full reference.
 """
+from urllib.parse import urlparse
+
 from pydantic_settings import BaseSettings
-from pydantic import ConfigDict
+from pydantic import ConfigDict, field_validator
 
 
 class Settings(BaseSettings):
@@ -43,11 +45,31 @@ class Settings(BaseSettings):
 
     model_config = ConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 
+    # LLM Provider: "ollama" (local, zero cost) or "groq" (cloud, free tier)
+    llm_provider: str = "ollama"
+
     # Ollama Configuration (local LLM - no API key needed)
     ollama_base_url: str = "http://localhost:11434"
+
+    @field_validator("ollama_base_url")
+    @classmethod
+    def validate_ollama_url(cls, v: str) -> str:
+        """Only allow localhost/127.0.0.1 Ollama URLs to prevent SSRF."""
+        parsed = urlparse(v)
+        allowed_hosts = {"localhost", "127.0.0.1", "host.docker.internal", "ollama"}
+        if parsed.hostname not in allowed_hosts:
+            raise ValueError(
+                f"ollama_base_url must target localhost or a trusted host, "
+                f"got '{parsed.hostname}'"
+            )
+        return v
     llm_model: str = "llama3.2"
     max_tokens: int = 1000
     temperature: float = 0.1
+
+    # Groq Configuration (cloud LLM - free API key from https://console.groq.com/keys)
+    groq_api_key: str = ""
+    groq_model: str = "llama-3.3-70b-versatile"
 
     # Embedding Configuration (local sentence-transformers - no API key needed)
     embedding_model: str = "bge-small"  # options: mini, mpnet, bge-small, bge-base
@@ -62,7 +84,7 @@ class Settings(BaseSettings):
     data_dir: str = "./data/raw"
 
     # API Configuration
-    api_host: str = "0.0.0.0"
+    api_host: str = "127.0.0.1"  # Bind to localhost by default; use 0.0.0.0 in containers
     api_port: int = 8000
     log_level: str = "INFO"
 

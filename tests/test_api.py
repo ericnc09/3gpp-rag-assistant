@@ -5,6 +5,7 @@ Uses FastAPI's TestClient so no live server is needed.
 All heavy components (VectorStore, OllamaLLM) are mocked via app_state patching.
 """
 import pytest
+from collections import OrderedDict
 from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 
@@ -41,12 +42,12 @@ def mock_app_state():
     api_main.app_state.vector_store = mock_vs
     api_main.app_state.metrics = mock_metrics
     api_main.app_state.ready = True
-    api_main.app_state.sessions = {}
+    api_main.app_state.sessions = OrderedDict()
 
     yield
 
     # Reset sessions between tests
-    api_main.app_state.sessions = {}
+    api_main.app_state.sessions = OrderedDict()
 
 
 @pytest.fixture
@@ -125,8 +126,10 @@ class TestHealth:
         assert "llm" in data["components"]
 
     def test_health_degraded_when_llm_unavailable(self, client):
-        with patch("src.api.main.OllamaLLM") as MockLLM:
-            MockLLM.return_value.is_available.return_value = False
+        with patch("src.api.main._create_llm") as mock_create:
+            mock_llm = MagicMock()
+            mock_llm.is_available.return_value = False
+            mock_create.return_value = mock_llm
             data = client.get("/health").json()
         assert data["status"] == "degraded"
 

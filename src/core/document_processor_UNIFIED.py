@@ -276,7 +276,16 @@ class UnifiedDocumentProcessor:
         """
         if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
-        
+
+        # Reject excessively large files (100 MB limit)
+        MAX_FILE_SIZE_MB = 100
+        file_size_mb = file_path.stat().st_size / (1024 * 1024)
+        if file_size_mb > MAX_FILE_SIZE_MB:
+            raise ValueError(
+                f"File too large ({file_size_mb:.1f} MB). "
+                f"Maximum allowed: {MAX_FILE_SIZE_MB} MB"
+            )
+
         file_ext = file_path.suffix.lower()
         
         # Route to appropriate loader

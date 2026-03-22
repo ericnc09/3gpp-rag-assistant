@@ -37,7 +37,9 @@ class TestRecord:
     def test_record_stores_correct_values(self, tracker):
         m = tracker.record("test query", retrieve_time=0.25, generate_time=1.1,
                            num_sources=4, answer_length=300)
-        assert m.query == "test query"
+        # query is now stored as a SHA-256 hash prefix (privacy)
+        assert len(m.query) == 16  # 16-char hex hash
+        assert m.query != "test query"
         assert m.retrieve_time == 0.25
         assert m.generate_time == 1.1
         assert m.num_sources == 4
@@ -103,7 +105,8 @@ class TestRecent:
     def test_recent_returns_last_n(self, tracker_with_records):
         recent = tracker_with_records.recent(2)
         assert len(recent) == 2
-        assert recent[-1].query == "5G protocol stack"
+        # query is hashed — just check it's a 16-char hex string
+        assert len(recent[-1].query) == 16
 
     def test_recent_default_is_5(self, tracker):
         for i in range(7):
@@ -140,7 +143,7 @@ class TestPersistence:
         assert path.exists()
         data = json.loads(path.read_text())
         assert len(data) == 1
-        assert data[0]["query"] == "q"
+        assert len(data[0]["query"]) == 16  # hashed
 
     def test_loads_from_existing_json(self, tmp_path):
         from src.utils.metrics import MetricsTracker
@@ -153,7 +156,7 @@ class TestPersistence:
         # Load in new instance
         t2 = MetricsTracker(persist_path=str(path))
         assert len(t2._records) == 1
-        assert t2._records[0].query == "first"
+        assert len(t2._records[0].query) == 16  # hashed
 
     def test_reset_deletes_file(self, tmp_path):
         from src.utils.metrics import MetricsTracker

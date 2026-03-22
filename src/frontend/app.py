@@ -9,12 +9,17 @@ Run:
 Requires the FastAPI backend to be running:
     uvicorn src.api.main:app --reload --port 8000
 """
+import html
 import json
+import logging
+import os
 import time
 import requests
 import streamlit as st
 
-API_BASE = "http://localhost:8000"
+logger = logging.getLogger(__name__)
+
+API_BASE = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -319,7 +324,7 @@ _filter_parts = [p for p in [_gen if _gen != "All" else "", _dom if _dom != "All
 _filter_label = " · ".join(_filter_parts) if _filter_parts else "All specs"
 st.markdown(
     f'<div class="sub-header">Ask questions about 3GPP specifications — '
-    f'fully local, zero cost, cited answers &nbsp;|&nbsp; '
+    f'AI-powered, cited answers &nbsp;|&nbsp; '
     f'<b>Scope: {_filter_label}</b></div>',
     unsafe_allow_html=True,
 )
@@ -357,11 +362,13 @@ def render_sources(sources: list):
                     f'TS {s["spec_number"]} · {gen} {dom}'
                     f'</span>'
                 )
+            safe_source = html.escape(s["source"])
+            safe_text = html.escape(s["text"][:250]) + ("..." if len(s["text"]) > 250 else "")
             st.markdown(
                 f'<div class="source-card">'
-                f'<b>{s["source"]}</b>{spec_badge} '
+                f'<b>{safe_source}</b>{spec_badge} '
                 f'<span class="similarity-badge">{s["similarity"]:.0%}</span><br>'
-                f'<small>{s["text"][:250]}{"..." if len(s["text"]) > 250 else ""}</small>'
+                f'<small>{safe_text}</small>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
@@ -436,7 +443,8 @@ if question:
                 answer = "".join(full_answer)
 
             except Exception as e:
-                st.error(f"Streaming error: {e}")
+                logger.error(f"Streaming error: {e}")
+                st.error("Streaming failed. Please try again.")
                 st.stop()
 
         else:
@@ -445,10 +453,12 @@ if question:
                 try:
                     result = post_query(question, source_filter, top_k)
                 except requests.HTTPError as e:
-                    st.error(f"API error: {e}")
+                    logger.error(f"API error: {e}")
+                    st.error("API request failed. Please try again.")
                     st.stop()
                 except Exception as e:
-                    st.error(f"Request failed: {e}")
+                    logger.error(f"Request failed: {e}")
+                    st.error("Request failed. Please try again.")
                     st.stop()
 
             answer = result["answer"]

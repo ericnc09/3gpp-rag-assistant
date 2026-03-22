@@ -10,6 +10,7 @@ Usage:
                    num_sources=5, answer_length=420)
     print(tracker.summary())
 """
+import hashlib
 import json
 import time
 import logging
@@ -64,9 +65,15 @@ class MetricsTracker:
         num_sources: int,
         answer_length: int,
     ) -> QueryMetric:
-        """Record metrics for one completed query."""
+        """Record metrics for one completed query.
+
+        The query text is hashed (SHA-256 prefix) before storage to avoid
+        persisting user questions in plaintext.
+        """
+        # Store hashed query to protect user privacy
+        query_hash = hashlib.sha256(query.encode()).hexdigest()[:16]
         metric = QueryMetric(
-            query=query,
+            query=query_hash,
             retrieve_time=retrieve_time,
             generate_time=generate_time,
             total_time=retrieve_time + generate_time,

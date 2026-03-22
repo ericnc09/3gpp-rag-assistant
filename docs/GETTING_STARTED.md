@@ -8,7 +8,7 @@ Before you begin, ensure you have the following installed:
 - Python 3.9 or higher
 - pip (Python package installer)
 - Git
-- An OpenAI API key
+- A free Groq API key (get one at https://console.groq.com/keys)
 
 ## Step-by-Step Setup
 
@@ -50,9 +50,9 @@ cp .env.example .env
 nano .env
 ```
 
-Add your OpenAI API key:
+Add your Groq API key:
 ```
-OPENAI_API_KEY=sk-your-actual-api-key-here
+GROQ_API_KEY=<your-groq-api-key-here>
 ```
 
 ### 5. Download 3GPP Specifications

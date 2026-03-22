@@ -5,8 +5,9 @@ pydantic>=2.5.3
 pydantic-settings>=2.1.0
 httpx>=0.24.0,<0.28.0
 
-# Local LLM (zero cost - requires Ollama: https://ollama.com)
-ollama>=0.1.8
+# LLM providers
+ollama>=0.1.8              # Local (zero cost - requires Ollama: https://ollama.com)
+groq>=0.4.0                # Cloud (free tier - https://console.groq.com/keys)
 
 # Local Embeddings (zero cost - sentence-transformers)
 sentence-transformers>=2.3.1
@@ -18,7 +19,7 @@ chromadb>=0.5.0
 # Document Processing
 python-docx==1.1.0
 pypdf==4.0.1
-python-multipart==0.0.6
+python-multipart>=0.0.7
 
 # Frontend
 streamlit>=1.30.0
@@ -27,7 +28,7 @@ requests>=2.31.0
 # Data Processing
 pandas>=2.1.4
 numpy>=1.26.3
-Pillow>=9.0.0
+Pillow>=10.3.0
 
 # Utilities
 python-dotenv==1.0.0

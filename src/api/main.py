@@ -17,9 +17,12 @@ Interactive docs:
     http://localhost:8000/docs
 """
 import json
+import os
+import re
 import uuid
 import time
 import logging
+from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
@@ -38,6 +41,7 @@ from src.api.models import (
 from src.core.rag_chain import RAGChain
 from src.core.vector_store import VectorStore
 from src.core.llm import OllamaLLM
+from src.core.groq_llm import GroqLLM
 from src.core.retriever import DocumentRetriever
 from src.core.spec_catalog import CATALOG, infer_spec_from_filename
 from src.utils.logger import setup_logger
@@ -51,6 +55,63 @@ logger = logging.getLogger(__name__)
 # Application state
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Security constants
+# ---------------------------------------------------------------------------
+
+MAX_SESSIONS = 200           # Limit total active sessions (memory DoS protection)
+SESSION_TTL_SECONDS = 3600   # Sessions expire after 1 hour of inactivity
+MAX_QUESTION_LENGTH = 1000   # Limit user input length
+
+# Rate limiting: per-IP request tracking
+_rate_limit_window = 60       # seconds
+_rate_limit_max = 20          # max queries per IP per window
+_rate_limit_max_ips = 10_000  # max tracked IPs (prevents memory exhaustion)
+_rate_limit_store: OrderedDict[str, list] = OrderedDict()
+
+
+def _get_client_ip(request: Request) -> str:
+    """Extract client IP from request, handling proxied and test scenarios."""
+    # Prefer X-Forwarded-For when behind a reverse proxy (Streamlit Cloud)
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    if request.client and request.client.host:
+        return request.client.host
+    return "unknown"
+
+
+def _check_rate_limit(request: Request):
+    """Enforce per-IP rate limiting on query endpoints.
+
+    The store is bounded to _rate_limit_max_ips entries with LRU eviction
+    to prevent memory exhaustion from IP rotation attacks.
+    """
+    client_ip = _get_client_ip(request)
+    now = time.time()
+
+    # LRU eviction: if store is full and this is a new IP, drop oldest
+    if client_ip not in _rate_limit_store:
+        while len(_rate_limit_store) >= _rate_limit_max_ips:
+            _rate_limit_store.popitem(last=False)
+        _rate_limit_store[client_ip] = []
+
+    # Prune expired timestamps for this IP
+    _rate_limit_store[client_ip] = [
+        t for t in _rate_limit_store[client_ip]
+        if now - t < _rate_limit_window
+    ]
+    # Move to end (LRU)
+    _rate_limit_store.move_to_end(client_ip)
+
+    if len(_rate_limit_store[client_ip]) >= _rate_limit_max:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Max {_rate_limit_max} queries per minute."
+        )
+    _rate_limit_store[client_ip].append(now)
+
+
 class AppState:
     """Holds shared application state (initialised once at startup)."""
 
@@ -58,10 +119,23 @@ class AppState:
         self.rag_chain: Optional[RAGChain] = None
         self.vector_store: Optional[VectorStore] = None
         self.metrics: Optional[MetricsTracker] = None
-        # Session store: session_id -> RAGChain instance
-        # Each session has its own RAGChain so history is isolated
-        self.sessions: Dict[str, RAGChain] = {}
+        # Session store: session_id -> (RAGChain, last_access_time)
+        # LRU-bounded with TTL eviction
+        self.sessions: OrderedDict[str, tuple] = OrderedDict()
         self.ready: bool = False
+
+    def evict_expired_sessions(self):
+        """Remove sessions older than TTL and enforce max count."""
+        now = time.time()
+        expired = [
+            sid for sid, (_, last_access) in self.sessions.items()
+            if now - last_access > SESSION_TTL_SECONDS
+        ]
+        for sid in expired:
+            del self.sessions[sid]
+        # If still over limit, evict oldest
+        while len(self.sessions) > MAX_SESSIONS:
+            self.sessions.popitem(last=False)
 
 
 app_state = AppState()
@@ -101,6 +175,9 @@ async def lifespan(app: FastAPI):
 # App definition
 # ---------------------------------------------------------------------------
 
+# Disable interactive docs in production (expose internal schema)
+_enable_docs = os.getenv("ENABLE_API_DOCS", "false").lower() in ("1", "true", "yes")
+
 app = FastAPI(
     title="3GPP RAG Assistant",
     description=(
@@ -109,13 +186,19 @@ app = FastAPI(
     ),
     version="1.0.0",
     lifespan=lifespan,
+    docs_url="/docs" if _enable_docs else None,
+    redoc_url="/redoc" if _enable_docs else None,
+    openapi_url="/openapi.json" if _enable_docs else None,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # tighten in production
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[
+        "http://localhost:8501",    # Local Streamlit dev
+    ],
+    allow_origin_regex=r"https://3gpp-rag-assistant\.streamlit\.app",  # Only our Streamlit Cloud app
+    allow_methods=["GET", "POST", "DELETE"],
+    allow_headers=["Content-Type"],
 )
 
 
@@ -124,10 +207,18 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 
 @app.middleware("http")
-async def add_timing_header(request: Request, call_next):
+async def add_security_and_timing_headers(request: Request, call_next):
+    """Add security headers and request timing to every response."""
     t0 = time.time()
     response = await call_next(request)
+    # Timing
     response.headers["X-Process-Time"] = f"{time.time() - t0:.3f}s"
+    # Security headers
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'"
     return response
 
 
@@ -135,10 +226,41 @@ async def add_timing_header(request: Request, call_next):
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _create_llm():
+    """Create the right LLM instance based on settings.llm_provider."""
+    if settings.llm_provider == "groq":
+        logger.info(f"Using Groq LLM: {settings.groq_model}")
+        return GroqLLM(
+            model=settings.groq_model,
+            api_key=settings.groq_api_key or None,
+            temperature=settings.temperature,
+            max_tokens=settings.max_tokens,
+        )
+    else:
+        logger.info(f"Using Ollama LLM: {settings.llm_model}")
+        return OllamaLLM(
+            model=settings.llm_model,
+            base_url=settings.ollama_base_url,
+            temperature=settings.temperature,
+            max_tokens=settings.max_tokens,
+        )
+
+
 def _get_or_create_session(session_id: Optional[str]) -> tuple[str, RAGChain]:
-    """Return (session_id, chain), creating a new session if needed."""
+    """Return (session_id, chain), creating a new session if needed.
+
+    Sessions are stored with a last-access timestamp and evicted
+    when they exceed MAX_SESSIONS or SESSION_TTL_SECONDS.
+    """
+    # Evict stale sessions periodically
+    app_state.evict_expired_sessions()
+
     if session_id and session_id in app_state.sessions:
-        return session_id, app_state.sessions[session_id]
+        chain, _ = app_state.sessions[session_id]
+        # Update last-access time and move to end (LRU)
+        app_state.sessions.move_to_end(session_id)
+        app_state.sessions[session_id] = (chain, time.time())
+        return session_id, chain
 
     new_id = session_id or str(uuid.uuid4())
     chain = RAGChain(
@@ -146,16 +268,11 @@ def _get_or_create_session(session_id: Optional[str]) -> tuple[str, RAGChain]:
             vector_store=app_state.vector_store,
             top_k=settings.top_k_results,
         ),
-        llm=OllamaLLM(
-            model=settings.llm_model,
-            base_url=settings.ollama_base_url,
-            temperature=settings.temperature,
-            max_tokens=settings.max_tokens,
-        ),
+        llm=_create_llm(),
         max_history_turns=settings.max_history_length,
     )
-    app_state.sessions[new_id] = chain
-    logger.info(f"Created session: {new_id}")
+    app_state.sessions[new_id] = (chain, time.time())
+    logger.info(f"Created session: {new_id} (active: {len(app_state.sessions)})")
     return new_id, chain
 
 
@@ -178,7 +295,7 @@ def _check_ready():
     description="Submit a natural language question and receive a grounded answer with citations.",
     tags=["Query"],
 )
-async def query(request: QueryRequest):
+async def query(request: QueryRequest, req: Request):
     """
     Ask a question about 3GPP specifications.
 
@@ -186,6 +303,7 @@ async def query(request: QueryRequest):
     Omit it to start a new session.
     """
     _check_ready()
+    _check_rate_limit(req)
 
     session_id, chain = _get_or_create_session(request.session_id)
 
@@ -198,7 +316,8 @@ async def query(request: QueryRequest):
             generation=request.generation,
         )
     except RuntimeError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+        logger.error(f"Query failed: {e}")
+        raise HTTPException(status_code=503, detail="LLM generation failed. Check /health for status.")
 
     # Record metrics
     app_state.metrics.record(
@@ -225,7 +344,7 @@ async def query(request: QueryRequest):
     description="Same as /query but streams the answer token-by-token via Server-Sent Events.",
     tags=["Query"],
 )
-async def query_stream(request: QueryRequest):
+async def query_stream(request: QueryRequest, req: Request):
     """
     Stream a response token-by-token using Server-Sent Events (SSE).
 
@@ -235,6 +354,7 @@ async def query_stream(request: QueryRequest):
       - `data: {"type":"done","session_id":"...","query_time":2.1}`
     """
     _check_ready()
+    _check_rate_limit(req)
 
     session_id, chain = _get_or_create_session(request.session_id)
 
@@ -251,7 +371,8 @@ async def query_stream(request: QueryRequest):
                     chunk["session_id"] = session_id
                 yield f"data: {json.dumps(chunk)}\n\n"
         except RuntimeError as e:
-            yield f"data: {json.dumps({'type':'error','detail':str(e)})}\n\n"
+            logger.error(f"Stream failed: {e}")
+            yield f"data: {json.dumps({'type':'error','detail':'Generation failed. Check /health.'})}\n\n"
 
     return StreamingResponse(
         event_generator(),
@@ -269,9 +390,9 @@ async def query_stream(request: QueryRequest):
 async def get_history(session_id: str):
     """Return the full conversation history for a session."""
     if session_id not in app_state.sessions:
-        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
+        raise HTTPException(status_code=404, detail="Session not found.")
 
-    chain = app_state.sessions[session_id]
+    chain, _ = app_state.sessions[session_id]
     history = chain.get_history()
 
     return HistoryResponse(
@@ -289,10 +410,11 @@ async def get_history(session_id: str):
 async def clear_history(session_id: str):
     """Clear the conversation history for a session (session remains active)."""
     if session_id not in app_state.sessions:
-        raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
+        raise HTTPException(status_code=404, detail="Session not found.")
 
-    app_state.sessions[session_id].clear_history()
-    return {"message": f"History cleared for session '{session_id}'"}
+    chain, _ = app_state.sessions[session_id]
+    chain.clear_history()
+    return {"message": "History cleared."}
 
 
 @app.get(
@@ -320,20 +442,26 @@ async def health():
                 "detail": f"{stats['total_chunks']} chunks indexed"
             }
     except Exception as e:
-        components["vector_store"] = {"status": "unavailable", "detail": str(e)}
+        logger.error(f"Vector store health check failed: {e}")
+        components["vector_store"] = {"status": "unavailable", "detail": "connection failed"}
 
-    # Ollama LLM
+    # LLM (Ollama or Groq)
     try:
-        llm = OllamaLLM(model=settings.llm_model, base_url=settings.ollama_base_url)
+        llm = _create_llm()
         if llm.is_available():
-            components["llm"] = {"status": "ok", "detail": f"model={settings.llm_model}"}
+            model_name = settings.groq_model if settings.llm_provider == "groq" else settings.llm_model
+            components["llm"] = {
+                "status": "ok",
+                "detail": f"provider={settings.llm_provider}, model={model_name}"
+            }
         else:
             components["llm"] = {
                 "status": "degraded",
-                "detail": f"Model '{settings.llm_model}' not available. Run: ollama pull {settings.llm_model}"
+                "detail": f"LLM not available ({settings.llm_provider})"
             }
     except Exception as e:
-        components["llm"] = {"status": "unavailable", "detail": str(e)}
+        logger.error(f"LLM health check failed: {e}")
+        components["llm"] = {"status": "unavailable", "detail": "connection failed"}
 
     # Embeddings
     components["embeddings"] = {
@@ -432,8 +560,8 @@ async def eval_results():
     tags=["System"],
 )
 async def catalog(
-    domain: Optional[str] = None,
-    generation: Optional[str] = None,
+    domain: Optional[str] = None,     # "RAN" or "CORE"
+    generation: Optional[str] = None,  # "5G" or "LTE"
 ):
     """Return the full spec catalog, optionally filtered by domain/generation.
 
@@ -459,8 +587,12 @@ async def catalog(
 
     entries = CATALOG
     if domain:
+        if domain not in ("RAN", "CORE"):
+            raise HTTPException(status_code=400, detail="domain must be 'RAN' or 'CORE'")
         entries = [e for e in entries if e["domain"] == domain]
     if generation:
+        if generation not in ("5G", "LTE"):
+            raise HTTPException(status_code=400, detail="generation must be '5G' or 'LTE'")
         entries = [e for e in entries if e["generation"] == generation]
 
     specs = [

@@ -39,9 +39,12 @@ ENV/
 .env.local
 
 # Data files
-data/raw/*.pdf
+data/raw/
 data/processed/*.json
 data/vectordb/
+data/vectordb_cloud/
+data/vectorstore/
+data/api_metrics.json
 
 # Logs
 *.log
