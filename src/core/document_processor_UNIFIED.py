@@ -184,9 +184,13 @@ class UnifiedDocumentProcessor:
         
         for table in doc.tables:
             for row in table.rows:
-                row_text = " | ".join(cell.text.strip() for cell in row.cells)
-                if row_text.strip():
-                    text_parts.append(row_text)
+                try:
+                    row_text = " | ".join(cell.text.strip() for cell in row.cells)
+                    if row_text.strip():
+                        text_parts.append(row_text)
+                except (IndexError, Exception):
+                    # Skip malformed table rows (e.g. irregular cell spans)
+                    continue
         
         full_text = "\n".join(text_parts)
         logger.info(f"Extracted {len(full_text)} characters from DOCX")

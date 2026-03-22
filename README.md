@@ -7,7 +7,7 @@ Supported by Claude Code, this is an AI-powered Retrieval-Augmented Generation (
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Tests](https://img.shields.io/badge/tests-152%20passing-brightgreen.svg)](#testing)
 [![Specs](https://img.shields.io/badge/3GPP%20specs-37%20indexed-blue.svg)](#-features)
-[![Chunks](https://img.shields.io/badge/chunks-42%2C327-blue.svg)](#-features)
+[![Chunks](https://img.shields.io/badge/chunks-43%2C121-blue.svg)](#-features)
 
 ---
 
@@ -727,8 +727,12 @@ Phase 3: Full Spec Coverage   ████████████████�
 - [x] Downloaded all 37 specs (latest versions) from 3GPP FTP archive across all 4 categories
 - [x] 5G RAN (19 specs), LTE RAN (11), 5G Core (4), LTE Core (3) — ~100MB total
 - [x] Files organized under `data/raw/<generation>/<domain>/` with proper metadata tagging
-- [x] **42,327 chunks indexed** with domain, generation, spec_number, and spec_title metadata
+- [x] **43,121 chunks indexed** with domain, generation, spec_number, and spec_title metadata
 - [x] Domain/generation filtering now fully functional in UI and API
+
+#### Bug Fixes
+- [x] Fixed DOCX table parser crash on malformed rows (TS 36.212) — graceful skip of irregular cell spans
+- [x] Fixed `/catalog` endpoint — now probes ChromaDB by `spec_number` metadata instead of matching filenames against flat `data/raw/` path; correctly shows 37/37 indexed
 
 #### CPU-Stable Index Builder
 - [x] `scripts/build_index_cpu.py` — forces CPU embedding to avoid Apple MPS GPU stalls on large files

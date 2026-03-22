@@ -444,15 +444,16 @@ async def catalog(
     indexed_specs: set = set()
     if app_state.ready and app_state.vector_store:
         try:
-            # Sample metadata from the collection to discover indexed spec numbers
-            result = app_state.vector_store.collection.get(
-                limit=10000,
-                include=["metadatas"],
-            )
-            for meta in result.get("metadatas", []):
-                sn = meta.get("spec_number")
-                if sn and sn != "unknown":
-                    indexed_specs.add(sn)
+            # Probe each catalog spec with a targeted where-filter query
+            # (avoids fetching all 40K+ chunks just to discover which specs exist)
+            for entry in CATALOG:
+                result = app_state.vector_store.collection.get(
+                    limit=1,
+                    where={"spec_number": entry["spec_number"]},
+                    include=[],
+                )
+                if result and result.get("ids"):
+                    indexed_specs.add(entry["spec_number"])
         except Exception:
             pass  # Best-effort; if it fails just mark all as not indexed
 
