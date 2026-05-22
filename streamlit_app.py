@@ -292,23 +292,90 @@ st.set_page_config(
 )
 
 st.markdown("""
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
-    .main-header { font-size: 2rem; font-weight: 700; margin-bottom: 0.25rem; }
-    .sub-header { color: #888; font-size: 0.95rem; margin-bottom: 1.5rem; }
+    /* Apply Space Grotesk globally */
+    html, body, [class*="st-"], .stMarkdown, .stTextInput, .stChatInput,
+    .stButton > button, .stRadio, .stSlider, .stExpander, .stCaption {
+        font-family: 'Space Grotesk', sans-serif !important;
+    }
+    code, pre, .stCode { font-family: 'Space Mono', monospace !important; }
+
+    /* Header */
+    .main-header {
+        font-family: 'Space Grotesk', sans-serif;
+        font-size: 2rem; font-weight: 700;
+        letter-spacing: -0.5px; margin-bottom: 0.2rem;
+    }
+    .sub-header {
+        color: #8b8fa8; font-size: 0.9rem; margin-bottom: 1rem;
+        font-weight: 400;
+    }
+
+    /* Source cards */
     .source-card {
-        background: #1e1e2e; border-left: 3px solid #4f8ef7;
-        border-radius: 4px; padding: 0.75rem 1rem;
-        margin-bottom: 0.5rem; font-size: 0.85rem;
+        background: #1a1b2e; border-left: 3px solid #4f8ef7;
+        border-radius: 0.6rem; padding: 0.75rem 1rem;
+        margin-bottom: 0.5rem; font-size: 0.82rem;
+        line-height: 1.5;
     }
     .similarity-badge {
-        background: #2a4a7f; color: #9ec5fe;
-        padding: 2px 8px; border-radius: 10px;
-        font-size: 0.75rem; font-weight: 600;
+        background: #1e2d50; color: #7eb3ff;
+        padding: 2px 9px; border-radius: 20px;
+        font-size: 0.72rem; font-weight: 600;
+        letter-spacing: 0.02em;
     }
-    .timing-bar { color: #888; font-size: 0.8rem; margin-top: 0.4rem; }
-    .status-ok    { color: #4ade80; }
-    .status-warn  { color: #facc15; }
-    .status-error { color: #f87171; }
+    .timing-bar { color: #555; font-size: 0.78rem; margin-top: 0.5rem; }
+
+    /* Status indicators */
+    .status-ok    { color: #4ade80; font-weight: 600; }
+    .status-warn  { color: #facc15; font-weight: 600; }
+    .status-error { color: #f87171; font-weight: 600; }
+
+    /* Onboarding welcome card */
+    .onboarding-card {
+        background: #1a1b2e; border: 1px solid #2a2b3e;
+        border-radius: 0.8rem; padding: 1.5rem 2rem;
+        margin: 1rem 0 1.5rem 0;
+    }
+    .onboarding-card h4 {
+        font-size: 1rem; font-weight: 600;
+        color: #7eb3ff; margin: 0 0 0.4rem 0;
+    }
+    .onboarding-card p {
+        color: #a0a3b8; font-size: 0.85rem;
+        margin: 0 0 0.25rem 0; line-height: 1.55;
+    }
+    .onboarding-grid {
+        display: grid; grid-template-columns: repeat(3, 1fr);
+        gap: 1rem; margin-top: 1rem;
+    }
+    .onboarding-item {
+        background: #12131f; border-radius: 0.6rem;
+        padding: 0.9rem 1rem;
+    }
+    .onboarding-item .icon { font-size: 1.3rem; margin-bottom: 0.35rem; }
+    .onboarding-item h5 {
+        font-size: 0.82rem; font-weight: 600;
+        color: #e8e9f0; margin: 0 0 0.2rem 0;
+    }
+    .onboarding-item p {
+        font-size: 0.78rem; color: #6b6e85; margin: 0;
+    }
+
+    /* Example query buttons */
+    div[data-testid="stHorizontalBlock"] .stButton > button {
+        font-size: 0.78rem !important; padding: 0.3rem 0.6rem !important;
+        border-radius: 20px !important; border: 1px solid #2a2b3e !important;
+        background: #12131f !important; color: #a0a3b8 !important;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        transition: border-color 0.15s, color 0.15s;
+    }
+    div[data-testid="stHorizontalBlock"] .stButton > button:hover {
+        border-color: #4f8ef7 !important; color: #7eb3ff !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -451,10 +518,12 @@ st.markdown(
 
 # Example queries
 example_queries = [
-    "What is the gNB-CU architecture?",
-    "Explain the F1 interface",
-    "How does handover work in 5G?",
-    "What is the difference between SA and NSA?",
+    "What is the gNB-CU/DU split?",
+    "How does 5G handover work?",
+    "Explain the F1-AP interface",
+    "What is PDCP's role in 5G?",
+    "SA vs NSA deployment modes",
+    "How does MAC scheduling work in NR?",
 ]
 
 cols = st.columns(len(example_queries))
@@ -463,6 +532,36 @@ for col, q in zip(cols, example_queries):
         st.session_state["pending_question"] = q
 
 st.divider()
+
+# ---------------------------------------------------------------------------
+# Onboarding card (shown only until the first message)
+# ---------------------------------------------------------------------------
+
+if not st.session_state.messages:
+    st.markdown("""
+<div class="onboarding-card">
+    <h4>Welcome to the 3GPP RAG Assistant</h4>
+    <p>Ask any question about 3GPP specifications in plain English — the assistant searches
+    across 37 indexed specs and gives you cited, technically accurate answers.</p>
+    <div class="onboarding-grid">
+        <div class="onboarding-item">
+            <div class="icon">🔍</div>
+            <h5>Ask in plain English</h5>
+            <p>No need to know exact clause numbers. Describe what you're looking for.</p>
+        </div>
+        <div class="onboarding-item">
+            <div class="icon">📡</div>
+            <h5>Filter by spec scope</h5>
+            <p>Use the sidebar to narrow results to 5G or LTE, RAN or Core.</p>
+        </div>
+        <div class="onboarding-item">
+            <div class="icon">📚</div>
+            <h5>Check your sources</h5>
+            <p>Every answer includes source chunks with spec number and similarity score.</p>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
 # Render existing messages
@@ -549,22 +648,33 @@ if question:
     with st.chat_message("assistant"):
         start = time.time()
 
-        # Retrieve
         domain = None if st.session_state.filter_domain == "All" else st.session_state.filter_domain
         generation = None if st.session_state.filter_generation == "All" else st.session_state.filter_generation
 
-        with st.spinner("Searching specifications..."):
+        # Step 1: retrieve
+        status = st.status("Searching specifications...", expanded=False)
+        with status:
+            st.write("Embedding query and searching vector index...")
             sources = retrieve(collection, question, top_k=top_k,
-                              domain=domain, generation=generation)
+                               domain=domain, generation=generation)
+            if sources:
+                st.write(f"Found {len(sources)} relevant chunks — generating answer...")
+            status.update(
+                label=f"Retrieved {len(sources)} source chunk{'s' if len(sources) != 1 else ''}",
+                state="complete" if sources else "error",
+            )
 
         if not sources:
-            answer = "I could not find relevant information in the indexed 3GPP specifications. Please try rephrasing your query."
-            st.markdown(answer)
+            scope_hint = ""
+            if domain or generation:
+                scope_hint = f" (currently filtered to **{generation or ''} {domain or ''}** — try switching to **All** in the sidebar)"
+            answer = f"No relevant content found in the indexed specifications{scope_hint}. Try rephrasing or broadening your question."
+            st.warning(answer)
         else:
             context = format_context(sources)
             prompt = PROMPT_TEMPLATE.format(context=context, question=question)
 
-            # Stream answer
+            # Step 2: stream answer
             token_placeholder = st.empty()
             full_answer = []
             try:
@@ -576,7 +686,15 @@ if question:
                 answer = "".join(full_answer)
             except Exception as e:
                 logger.error(f"Generation error: {e}")
-                answer = "Error generating answer. Please try again."
+                err_str = str(e).lower()
+                if "401" in err_str or "invalid api key" in err_str or "expired" in err_str:
+                    answer = "LLM authentication failed — the Groq API key may be invalid or expired. Please contact the app administrator."
+                elif "429" in err_str or "rate limit" in err_str:
+                    answer = "Groq API rate limit hit. Please wait a moment and try again."
+                elif "timeout" in err_str or "timed out" in err_str:
+                    answer = "The request timed out. Groq may be under load — please try again."
+                else:
+                    answer = "Something went wrong while generating the answer. Please try again."
                 st.error(answer)
 
         elapsed = time.time() - start
