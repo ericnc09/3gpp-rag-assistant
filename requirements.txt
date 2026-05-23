@@ -22,7 +22,7 @@ pypdf==4.0.1
 python-multipart>=0.0.7
 
 # Frontend
-streamlit>=1.30.0
+streamlit>=1.46.0
 requests>=2.31.0
 
 # Data Processing
