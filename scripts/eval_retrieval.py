@@ -1,33 +1,69 @@
 """
-Evaluation script for the 3GPP RAG pipeline
+Evaluation harness for the 3GPP RAG pipeline.
 
 Measures three layers of quality:
 
-  1. Retrieval quality  — are the right chunks being fetched?
-     - Context precision  : fraction of retrieved chunks that are relevant
-     - Context recall     : fraction of expected keywords found in top-k chunks
-     - Average similarity : mean cosine similarity of top-3 results
-     - Latency            : p50 / p95 retrieve time
+  1. Retrieval quality — are the right chunks being fetched?
 
-  2. Answer quality (requires Ollama) — is the generated answer good?
-     - Answer relevance   : do expected answer terms appear in the response?
-     - Faithfulness       : does the answer stay grounded in retrieved sources?
-     - Answer length      : is the response substantive (>50 chars)?
-     - Latency            : p50 / p95 generate time
+     STANDARD IR METRICS (primary — suitable for enterprise-RAG audiences):
+       - Recall@k    : fraction of expected source specs found in top-k
+       - MRR         : mean reciprocal rank of first relevant doc
+       - nDCG@k      : normalised discounted cumulative gain
+       - Hit-rate@k  : binary — was any relevant doc in top-k?
 
-  3. End-to-end latency benchmarks
-     - Total query time (retrieve + generate)
-     - p50 / p95 across all test cases
+     HEURISTIC METRICS (secondary — carried forward from original harness):
+       - Context precision  : fraction of retrieved chunks from a relevant source
+       - Context recall     : fraction of expected keywords in top-3 chunks
+       Note: these are RAGAS-inspired keyword heuristics, NOT IR-standard
+       precision/recall.  They measure surface-level vocabulary coverage only.
 
-Usage:
-    # Retrieval only (fast, no LLM needed)
+     Latency: p50/p95 retrieve time
+
+  2. Answer quality (requires Ollama or Groq) [RUN REQUIRED if not executed]
+
+     HEURISTIC answer metrics (no LLM judge):
+       - Answer relevance  : expected answer-keywords in the response
+       - Faithfulness      : heuristic grounding check (NOT LLM-judge)
+       - Answer length / refusal detection
+
+     LLM-JUDGE path (faithfulness + answer-correctness, configurable):
+       - Uses Groq (default) or Ollama as judge model
+       - Requires --judge-provider and GROQ_API_KEY or running Ollama
+       - Results marked [RUN REQUIRED] if not executed this session
+
+  3. Regression mode (--regression)
+       - Compares current run to a stored baseline
+       - Exits non-zero if any tracked metric regresses beyond tolerance
+       - Gate CI on: python scripts/eval_retrieval.py --regression
+
+Usage
+-----
+    # Retrieval only (fast, no LLM — requires built vector index)
     python scripts/eval_retrieval.py
 
-    # Full eval including answer quality
+    # Use expanded golden set (default; uses data/eval/golden_set.jsonl)
+    python scripts/eval_retrieval.py --golden data/eval/golden_set.jsonl
+
+    # Use legacy 10-query inline test cases
+    python scripts/eval_retrieval.py --no-golden
+
+    # Full eval including heuristic answer quality (requires Ollama)
     python scripts/eval_retrieval.py --full
 
-    # Save results to JSON (served by the API at GET /eval)
-    python scripts/eval_retrieval.py --full --output data/eval_results.json
+    # Full eval with LLM judge (requires GROQ_API_KEY or running Ollama)
+    python scripts/eval_retrieval.py --full --judge --judge-provider groq
+
+    # Save results
+    python scripts/eval_retrieval.py --output data/eval_results.json
+
+    # Regression check against stored baseline (CI gate)
+    python scripts/eval_retrieval.py --regression
+
+    # Save current results as new baseline
+    python scripts/eval_retrieval.py --save-baseline
+
+    # One-shot reproduce command documented in EVAL_REPORT.md:
+    python scripts/eval_retrieval.py --output data/eval_results.json
 """
 import sys
 import json
@@ -35,19 +71,34 @@ import argparse
 import time
 import statistics
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.core.retriever import DocumentRetriever
+from scripts.eval.metrics import compute_retrieval_metrics
+from scripts.eval.regression import compare_to_baseline, save_baseline, print_comparison_table
+
+# ---------------------------------------------------------------------------
+# Backward-compatibility aliases (imported by tests/test_eval.py)
+# ---------------------------------------------------------------------------
+
+from scripts.eval.metrics import (
+    context_precision as _context_precision,
+    context_recall_keywords as _context_recall,
+)
 
 
 # ---------------------------------------------------------------------------
-# Test cases — representative 3GPP questions with ground-truth signals
+# Inline test cases (legacy — 10 queries)
+# These match the cases used in the 2026-02-27 baseline run in
+# data/eval_results.json and are kept for backward-compat / fast smoke tests.
+# For the full evaluation use --golden data/eval/golden_set.jsonl.
 # ---------------------------------------------------------------------------
 
-TEST_CASES: List[Dict[str, Any]] = [
+LEGACY_TEST_CASES: List[Dict[str, Any]] = [
     {
+        "id": "legacy-01",
         "query": "What is gNB?",
         "expected_keywords": ["gnb", "base station", "node", "ran"],
         "answer_keywords": ["gnb", "base station", "radio"],
@@ -55,6 +106,7 @@ TEST_CASES: List[Dict[str, Any]] = [
         "min_similarity": 0.50,
     },
     {
+        "id": "legacy-02",
         "query": "Explain the 5G protocol stack",
         "expected_keywords": ["protocol", "stack", "layer", "nr"],
         "answer_keywords": ["protocol", "layer", "stack"],
@@ -62,6 +114,7 @@ TEST_CASES: List[Dict[str, Any]] = [
         "min_similarity": 0.50,
     },
     {
+        "id": "legacy-03",
         "query": "What are the NG-RAN functions?",
         "expected_keywords": ["ng-ran", "function", "ran"],
         "answer_keywords": ["ng-ran", "function"],
@@ -69,6 +122,7 @@ TEST_CASES: List[Dict[str, Any]] = [
         "min_similarity": 0.50,
     },
     {
+        "id": "legacy-04",
         "query": "How does handover work in 5G?",
         "expected_keywords": ["handover", "mobility", "cell"],
         "answer_keywords": ["handover", "cell", "ue"],
@@ -76,6 +130,7 @@ TEST_CASES: List[Dict[str, Any]] = [
         "min_similarity": 0.45,
     },
     {
+        "id": "legacy-05",
         "query": "What is the NR physical layer?",
         "expected_keywords": ["physical", "layer", "nr"],
         "answer_keywords": ["physical", "layer", "channel"],
@@ -83,6 +138,7 @@ TEST_CASES: List[Dict[str, Any]] = [
         "min_similarity": 0.50,
     },
     {
+        "id": "legacy-06",
         "query": "What is the difference between SA and NSA 5G deployments?",
         "expected_keywords": ["standalone", "non-standalone", "sa", "nsa"],
         "answer_keywords": ["sa", "nsa", "standalone"],
@@ -90,6 +146,7 @@ TEST_CASES: List[Dict[str, Any]] = [
         "min_similarity": 0.45,
     },
     {
+        "id": "legacy-07",
         "query": "Describe the F1 interface between gNB-CU and gNB-DU",
         "expected_keywords": ["f1", "cu", "du", "interface"],
         "answer_keywords": ["f1", "cu", "du"],
@@ -97,6 +154,7 @@ TEST_CASES: List[Dict[str, Any]] = [
         "min_similarity": 0.45,
     },
     {
+        "id": "legacy-08",
         "query": "What is E1 interface used for in 5G?",
         "expected_keywords": ["e1", "interface", "cu-cp", "cu-up"],
         "answer_keywords": ["e1", "cu-cp", "cu-up"],
@@ -104,6 +162,7 @@ TEST_CASES: List[Dict[str, Any]] = [
         "min_similarity": 0.45,
     },
     {
+        "id": "legacy-09",
         "query": "How is QoS managed in NG-RAN?",
         "expected_keywords": ["qos", "quality", "service", "bearer"],
         "answer_keywords": ["qos", "service", "flow"],
@@ -111,6 +170,7 @@ TEST_CASES: List[Dict[str, Any]] = [
         "min_similarity": 0.45,
     },
     {
+        "id": "legacy-10",
         "query": "What is Xn interface?",
         "expected_keywords": ["xn", "interface", "gnb"],
         "answer_keywords": ["xn", "interface", "gnb"],
@@ -119,88 +179,134 @@ TEST_CASES: List[Dict[str, Any]] = [
     },
 ]
 
+# Backward-compat alias: test_eval.py imports TEST_CASES from this module.
+TEST_CASES = LEGACY_TEST_CASES
+
 
 # ---------------------------------------------------------------------------
-# Retrieval evaluation
+# Golden-set loader
 # ---------------------------------------------------------------------------
 
-def _context_precision(docs: List[Dict], relevant_sources: List[str]) -> float:
+def load_golden_set(path: str) -> List[Dict[str, Any]]:
+    """Load the versioned golden dataset from a JSONL file.
+
+    Each line is one test case with at minimum:
+        id, query, relevant_sources, expected_keywords
+
+    Raises FileNotFoundError if the path doesn't exist.
     """
-    RAGAS-inspired context precision.
-
-    Fraction of retrieved chunks whose source document is relevant
-    (i.e. the filename contains one of the relevant_sources strings).
-    """
-    if not docs:
-        return 0.0
-    relevant_hits = sum(
-        1 for d in docs
-        if any(rs in d["source"] for rs in relevant_sources)
-    )
-    return relevant_hits / len(docs)
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"Golden set not found: {path}")
+    cases = []
+    with open(p) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                cases.append(json.loads(line))
+    return cases
 
 
-def _context_recall(docs: List[Dict], expected_keywords: List[str]) -> float:
-    """
-    RAGAS-inspired context recall.
-
-    Fraction of expected keywords found anywhere in the top-3 retrieved chunks.
-    """
-    if not docs or not expected_keywords:
-        return 0.0
-    combined_text = " ".join(d["text"].lower() for d in docs[:3])
-    hits = sum(1 for kw in expected_keywords if kw.lower() in combined_text)
-    return hits / len(expected_keywords)
-
+# ---------------------------------------------------------------------------
+# Retrieval evaluation (single case)
+# ---------------------------------------------------------------------------
 
 def evaluate_retrieval_case(retriever: DocumentRetriever, case: Dict) -> Dict:
-    """Run retrieval evaluation for a single test case."""
+    """Run retrieval evaluation for a single test case.
+
+    Returns a result dict that includes both standard IR metrics and the
+    legacy heuristic metrics, plus latency and pass/fail.
+    """
     query = case["query"]
+    relevant_sources = case.get("relevant_sources", [])
+    expected_keywords = case.get("expected_keywords", [])
     min_sim = case.get("min_similarity", 0.50)
+    k = case.get("k", 5)
 
     t0 = time.time()
     docs = retriever.retrieve(query)
     elapsed = round(time.time() - t0, 4)
 
+    is_ooc = case.get("is_out_of_corpus", False)
+
     if not docs:
         return {
-            "query": query,
-            "retrieval_pass": False,
-            "context_precision": 0.0,
-            "context_recall": 0.0,
-            "avg_similarity": 0.0,
-            "top_source": "N/A",
-            "retrieve_time": elapsed,
+            "id":               case.get("id", query[:30]),
+            "query":            query,
+            "is_out_of_corpus": is_ooc,
+            # For an out-of-corpus query, returning nothing is the correct
+            # (refusing) behaviour; for an in-corpus query it is a miss.
+            "refusal_correct":  True if is_ooc else None,
+            "retrieval_pass":   False,
+            # Standard IR
+            "hit_rate_at_k":    0.0,
+            "recall_at_k":      0.0,
+            "mrr":              0.0,
+            "ndcg_at_k":        0.0,
+            # Heuristic
+            "context_precision":       0.0,
+            "context_recall":          0.0,
+            # Legacy compat
+            "context_recall_keywords": 0.0,
+            "avg_similarity":   0.0,
+            "top_source":       "N/A",
+            "num_results":      0,
+            "retrieve_time":    elapsed,
         }
 
-    precision = _context_precision(docs, case.get("relevant_sources", []))
-    recall = _context_recall(docs, case["expected_keywords"])
+    metrics = compute_retrieval_metrics(
+        docs=docs,
+        relevant_sources=relevant_sources,
+        expected_keywords=expected_keywords,
+        k=k,
+    )
+
     avg_sim = sum(d["similarity"] for d in docs[:3]) / min(3, len(docs))
 
-    # Pass if recall >= 50% AND avg similarity >= threshold
-    passed = recall >= 0.5 and avg_sim >= min_sim
+    # Legacy pass criterion (keyword recall >= 50% AND avg similarity >= threshold)
+    passed = metrics["context_recall_keywords"] >= 0.5 and avg_sim >= min_sim
+
+    # For an out-of-corpus query the correct behaviour is to NOT retrieve a
+    # confident match: refusal is "correct" when top-3 avg similarity stays
+    # below the relevance threshold.
+    refusal_correct = (avg_sim < min_sim) if is_ooc else None
 
     return {
-        "query": query,
+        "id":             case.get("id", query[:30]),
+        "query":          query,
+        "is_out_of_corpus": is_ooc,
+        "refusal_correct":  refusal_correct,
         "retrieval_pass": passed,
-        "context_precision": round(precision, 3),
-        "context_recall": round(recall, 3),
+        # Standard IR metrics
+        "hit_rate_at_k":  metrics["hit_rate_at_k"],
+        "recall_at_k":    metrics["recall_at_k"],
+        "mrr":            metrics["mrr"],
+        "ndcg_at_k":      metrics["ndcg_at_k"],
+        # Heuristic metrics (RAGAS-inspired; NOT IR-standard precision/recall)
+        "context_precision":       metrics["context_precision"],
+        "context_recall":          metrics["context_recall_keywords"],    # alias for API compat
+        "context_recall_keywords": metrics["context_recall_keywords"],    # explicit
+        # Other
         "avg_similarity": round(avg_sim, 3),
         "min_similarity": min_sim,
-        "top_source": docs[0]["source"],
-        "num_results": len(docs),
-        "retrieve_time": elapsed,
-        "docs": docs,   # stripped before saving
+        "top_source":     docs[0]["source"],
+        "num_results":    len(docs),
+        "retrieve_time":  elapsed,
+        "docs":           docs,   # stripped before saving
     }
 
 
 def _print_retrieval_result(i: int, result: Dict) -> None:
     status = "PASS" if result["retrieval_pass"] else "FAIL"
     icon = "✅" if result["retrieval_pass"] else "❌"
-    print(f"\nTest {i}: {result['query']}")
+    print(f"\nTest {i} [{result.get('id', '')}]: {result['query']}")
     print("-" * 60)
-    print(f"  Context precision:  {result['context_precision']:.1%}")
-    print(f"  Context recall:     {result['context_recall']:.1%}")
+    print(f"  Hit-rate@k:         {result['hit_rate_at_k']:.1%}")
+    print(f"  Recall@k:           {result['recall_at_k']:.1%}")
+    print(f"  MRR:                {result['mrr']:.3f}")
+    print(f"  nDCG@k:             {result['ndcg_at_k']:.3f}")
+    print(f"  Context precision:  {result['context_precision']:.1%}  [heuristic]")
+    print(f"  Context recall kw:  {result['context_recall']:.1%}       [heuristic]")
     print(f"  Avg similarity:     {result['avg_similarity']:.3f}  "
           f"(min={result.get('min_similarity', 0.50):.3f})")
     print(f"  Top source:         {result['top_source']}")
@@ -209,16 +315,11 @@ def _print_retrieval_result(i: int, result: Dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Answer quality evaluation (RAGAS-style)
+# Answer quality evaluation (heuristic — no LLM judge)
 # ---------------------------------------------------------------------------
 
 def _answer_relevance(answer: str, case: Dict) -> float:
-    """
-    RAGAS-inspired answer relevance.
-
-    Measures how many expected answer keywords appear in the generated answer.
-    Range: 0.0 - 1.0
-    """
+    """HEURISTIC — fraction of expected answer keywords present in the response."""
     kw = case.get("answer_keywords", [])
     if not kw:
         return 0.0
@@ -227,21 +328,19 @@ def _answer_relevance(answer: str, case: Dict) -> float:
 
 
 def _faithfulness(answer: str, docs: List[Dict]) -> float:
-    """
-    RAGAS-inspired faithfulness.
+    """HEURISTIC — estimate of grounding in retrieved context.
 
-    Scores whether the answer stays grounded in the retrieved context.
-    Uses two heuristics:
-      1. Direct grounding signals (mentions source docs / 3GPP terminology)
-      2. Content overlap: key words from the top chunk appear in the answer
-    Range: 0.0 - 1.0
+    Uses two proxy signals:
+      1. Presence of grounding vocabulary (e.g. "3gpp", "according to")
+      2. Content overlap between answer and top retrieved chunk
+
+    Limitation: this is a surface heuristic, NOT a true faithfulness score.
+    For production use, replace with the LLM-judge path in scripts/eval/judge.py.
     """
     if not docs:
         return 0.0
 
     answer_lower = answer.lower()
-
-    # Heuristic 1: grounding signals
     grounding_signals = [
         "3gpp", "ts ", "specification", "according", "document",
         "source:", "based on", "the spec", "release",
@@ -250,7 +349,6 @@ def _faithfulness(answer: str, docs: List[Dict]) -> float:
         sum(1 for s in grounding_signals if s in answer_lower) / 3, 1.0
     )
 
-    # Heuristic 2: content overlap with top retrieved chunk
     stop = {
         "the", "a", "an", "is", "are", "in", "of", "to", "and", "or",
         "that", "it", "this", "for", "be", "was", "with", "as", "by",
@@ -267,9 +365,9 @@ def _faithfulness(answer: str, docs: List[Dict]) -> float:
 
 
 def evaluate_answer_quality(answer: str, case: Dict, docs: List[Dict]) -> Dict:
-    """Score the quality of a generated answer against a test case."""
+    """Score the quality of a generated answer against a test case (heuristic)."""
     relevance = _answer_relevance(answer, case)
-    faithfulness = _faithfulness(answer, docs)
+    faithfulness_score = _faithfulness(answer, docs)
 
     is_substantive = len(answer.strip()) >= 50
     refusal_signals = [
@@ -278,51 +376,48 @@ def evaluate_answer_quality(answer: str, case: Dict, docs: List[Dict]) -> Dict:
     ]
     is_refusal = any(s in answer.lower() for s in refusal_signals)
 
-    # Composite score: relevance 40%, faithfulness 40%, substantive 20%
     score = round(
         (relevance * 0.4)
-        + (faithfulness * 0.4)
+        + (faithfulness_score * 0.4)
         + (0.2 if is_substantive and not is_refusal else 0.0),
         3,
     )
 
     return {
-        "answer_relevance": round(relevance, 3),
-        "faithfulness": round(faithfulness, 3),
-        "answer_score": score,
-        "is_substantive": is_substantive,
-        "is_refusal": is_refusal,
-        "answer_pass": score >= 0.40,
-        "answer_preview": answer[:200].replace("\n", " "),
+        "answer_relevance":   round(relevance, 3),
+        "faithfulness":       faithfulness_score,
+        "answer_score":       score,
+        "is_substantive":     is_substantive,
+        "is_refusal":         is_refusal,
+        "answer_pass":        score >= 0.40,
+        "answer_preview":     answer[:200].replace("\n", " "),
     }
 
 
 def run_answer_eval(
-    retriever: DocumentRetriever, retrieval_results: List[Dict]
+    retriever: DocumentRetriever, retrieval_results: List[Dict], cases: List[Dict]
 ) -> List[Dict]:
-    """Enhance retrieval results with answer quality scores."""
+    """Enhance retrieval results with heuristic answer quality scores."""
     try:
         from src.core.llm import OllamaLLM
         from src.core.rag_chain import RAGChain
     except ImportError as e:
-        print(f"\n⚠️  Could not import LLM modules: {e}")
+        print(f"\n  Could not import LLM modules: {e}")
         return retrieval_results
 
     llm = OllamaLLM()
     if not llm.is_available():
-        print(f"\n⚠️  Ollama not available — skipping answer quality evaluation")
-        print(f"   Start Ollama: ollama serve  |  Pull model: ollama pull {llm.model}")
+        print(f"\n  Ollama not available — skipping answer quality evaluation")
+        print(f"  Start Ollama: ollama serve  |  Pull model: ollama pull {llm.model}")
         return retrieval_results
 
     chain = RAGChain(retriever=retriever, llm=llm)
     print(f"\n{'='*60}")
-    print(f"Answer Quality Evaluation  (model: {llm.model})")
+    print(f"Answer Quality Evaluation (heuristic)  (model: {llm.model})")
     print("=" * 60)
 
     enriched = []
-    for i, (result, case) in enumerate(
-        zip(retrieval_results, TEST_CASES[: len(retrieval_results)]), 1
-    ):
+    for i, (result, case) in enumerate(zip(retrieval_results, cases[:len(retrieval_results)]), 1):
         print(f"\nTest {i}: {result['query']}")
         print("-" * 60)
 
@@ -336,13 +431,83 @@ def run_answer_eval(
 
         icon = "✅" if aq["answer_pass"] else "❌"
         print(f"  Answer relevance:  {aq['answer_relevance']:.1%}")
-        print(f"  Faithfulness:      {aq['faithfulness']:.1%}")
+        print(f"  Faithfulness:      {aq['faithfulness']:.1%}  [heuristic]")
         print(f"  Score:             {aq['answer_score']:.2f}/1.00")
         print(f"  Generate time:     {gen_time}s")
         print(f"  Status:            {icon} {'PASS' if aq['answer_pass'] else 'FAIL'}")
         print(f"  Preview:           {aq['answer_preview'][:120]}...")
 
         enriched.append({**result, **aq})
+
+    return enriched
+
+
+def run_llm_judge_eval(
+    retrieval_results: List[Dict],
+    cases: List[Dict],
+    provider: str = "groq",
+    model: Optional[str] = None,
+) -> List[Dict]:
+    """[RUN REQUIRED] Enrich retrieval results with LLM-judge faithfulness + correctness.
+
+    Requires a live LLM (Groq API key or running Ollama).  Results are
+    marked [RUN REQUIRED] in EVAL_REPORT.md when this has not been executed.
+
+    Args:
+        retrieval_results: Output of the retrieval eval phase (must include 'docs').
+        cases:             Corresponding golden-set cases.
+        provider:          "groq" | "ollama"
+        model:             Override judge model name.
+
+    Returns:
+        Enriched results with "llm_judge" key per case.
+    """
+    from scripts.eval.judge import LLMJudge
+
+    judge = LLMJudge(provider=provider, model=model)
+    if not judge.is_available():
+        print(f"\n  LLM judge ({provider}) not available — skipping judge evaluation")
+        if provider == "groq":
+            print("  Set GROQ_API_KEY environment variable to enable.")
+        else:
+            print("  Start Ollama: ollama serve")
+        return retrieval_results
+
+    print(f"\n{'='*60}")
+    print(f"LLM-Judge Evaluation  (provider: {provider}, model: {judge.model})")
+    print("=" * 60)
+
+    enriched = []
+    for i, (result, case) in enumerate(zip(retrieval_results, cases[:len(retrieval_results)]), 1):
+        print(f"\n  Judging {i}/{len(retrieval_results)}: {result['query'][:60]}")
+
+        # Reconstruct context from docs
+        docs = result.get("docs", [])
+        context = "\n".join(
+            f"[{j+1}] (Source: {d['source']}) {d['text'][:400]}"
+            for j, d in enumerate(docs[:5])
+        )
+        # We need an answer to judge — skip if answer not available
+        answer = result.get("answer_preview", "")
+        if not answer:
+            enriched.append(result)
+            continue
+
+        scores = judge.judge(
+            question=result["query"],
+            context=context,
+            answer=answer,
+        )
+        icon = "✅" if scores.get("parse_ok") else "❌"
+        if scores.get("parse_ok"):
+            print(f"    Faithfulness:       {scores['faithfulness']:.2f}  "
+                  f"(raw {scores['faithfulness_raw']}/5)")
+            print(f"    Answer correctness: {scores['answer_correctness']:.2f}  "
+                  f"(raw {scores['answer_correctness_raw']}/5)")
+        else:
+            print(f"    {icon} Parse error: {scores.get('notes', '')}")
+
+        enriched.append({**result, "llm_judge": scores})
 
     return enriched
 
@@ -367,8 +532,8 @@ def compute_latency_benchmarks(results: List[Dict]) -> Dict:
 
     benchmarks: Dict[str, Any] = {
         "retrieve": {
-            "p50": _percentile(retrieve_times, 50),
-            "p95": _percentile(retrieve_times, 95),
+            "p50":  _percentile(retrieve_times, 50),
+            "p95":  _percentile(retrieve_times, 95),
             "mean": round(statistics.mean(retrieve_times), 4) if retrieve_times else 0,
         }
     }
@@ -379,13 +544,13 @@ def compute_latency_benchmarks(results: List[Dict]) -> Dict:
             if r.get("generate_time")
         ]
         benchmarks["generate"] = {
-            "p50": _percentile(generate_times, 50),
-            "p95": _percentile(generate_times, 95),
+            "p50":  _percentile(generate_times, 50),
+            "p95":  _percentile(generate_times, 95),
             "mean": round(statistics.mean(generate_times), 4),
         }
         benchmarks["total"] = {
-            "p50": _percentile(total_times, 50),
-            "p95": _percentile(total_times, 95),
+            "p50":  _percentile(total_times, 50),
+            "p95":  _percentile(total_times, 95),
             "mean": round(statistics.mean(total_times), 4),
         }
 
@@ -402,54 +567,106 @@ def print_summary(results: List[Dict], full_eval: bool) -> Dict:
     print("Evaluation Summary")
     print("=" * 60)
 
-    r_total = len(results)
-    r_passed = sum(1 for r in results if r["retrieval_pass"])
-    r_rate = r_passed / r_total if r_total else 0
+    # Split in-corpus (answerable) queries from out-of-corpus (refusal) probes.
+    # IR metrics only make sense on answerable queries; mixing the deliberate
+    # negatives into the averages would understate retrieval quality and
+    # mis-score the negatives (a negative "passes" by retrieving nothing
+    # confident, not by matching a relevant source).
+    in_corpus = [r for r in results if not r.get("is_out_of_corpus")]
+    ooc       = [r for r in results if r.get("is_out_of_corpus")]
 
-    avg_precision = sum(r["context_precision"] for r in results) / r_total if r_total else 0
-    avg_recall = sum(r["context_recall"] for r in results) / r_total if r_total else 0
-    avg_sim = sum(r["avg_similarity"] for r in results) / r_total if r_total else 0
+    n_in = len(in_corpus)
+    r_passed = sum(1 for r in in_corpus if r["retrieval_pass"])
+    r_rate = r_passed / n_in if n_in else 0
 
-    print(f"\nRetrieval Quality")
-    print(f"  Pass rate:             {r_passed}/{r_total} ({r_rate:.1%})")
+    # Standard IR aggregates — in-corpus only
+    avg_hit_rate   = sum(r.get("hit_rate_at_k", 0) for r in in_corpus) / n_in if n_in else 0
+    avg_recall     = sum(r.get("recall_at_k", 0) for r in in_corpus) / n_in if n_in else 0
+    avg_mrr        = sum(r.get("mrr", 0) for r in in_corpus) / n_in if n_in else 0
+    avg_ndcg       = sum(r.get("ndcg_at_k", 0) for r in in_corpus) / n_in if n_in else 0
+    # Heuristic aggregates — in-corpus only
+    avg_precision  = sum(r.get("context_precision", 0) for r in in_corpus) / n_in if n_in else 0
+    avg_recall_kw  = sum(r.get("context_recall", 0) for r in in_corpus) / n_in if n_in else 0
+    avg_sim        = sum(r.get("avg_similarity", 0) for r in in_corpus) / n_in if n_in else 0
+
+    print(f"\nRetrieval Quality — Standard IR Metrics (in-corpus, N={n_in})")
+    print(f"  Hit-rate@k:            {avg_hit_rate:.1%}")
+    print(f"  Recall@k:              {avg_recall:.1%}")
+    print(f"  MRR:                   {avg_mrr:.3f}")
+    print(f"  nDCG@k:                {avg_ndcg:.3f}")
+
+    print(f"\nRetrieval Quality — Heuristic Metrics [RAGAS-inspired; supplementary]")
+    print(f"  Legacy pass rate:      {r_passed}/{n_in} ({r_rate:.1%})")
     print(f"  Avg context precision: {avg_precision:.1%}")
-    print(f"  Avg context recall:    {avg_recall:.1%}")
+    print(f"  Avg context recall kw: {avg_recall_kw:.1%}")
     print(f"  Avg similarity:        {avg_sim:.3f}")
 
-    if r_rate >= 0.80:
-        print("  → ✅ EXCELLENT retrieval quality")
-    elif r_rate >= 0.60:
-        print("  → ✅ GOOD retrieval quality")
-    elif r_rate >= 0.40:
-        print("  → ⚠️  FAIR — consider tuning chunk size or embedding model")
+    if avg_ndcg >= 0.80:
+        print("  → EXCELLENT retrieval quality (nDCG@k)")
+    elif avg_ndcg >= 0.60:
+        print("  → GOOD retrieval quality (nDCG@k)")
+    elif avg_ndcg >= 0.40:
+        print("  → FAIR — consider tuning chunk size or embedding model")
     else:
-        print("  → ❌ POOR — check vector store and embedding model")
+        print("  → POOR — check vector store and embedding model")
+
+    # Refusal axis — out-of-corpus probes. Correct behaviour is to NOT surface
+    # a confident match (top-3 avg similarity below the relevance threshold).
+    # The LLM-judged refusal rate (did the generated answer actually decline?)
+    # needs --full + a live model and stays [RUN REQUIRED].
+    refusal_summary: Dict = {}
+    if ooc:
+        n_ooc = len(ooc)
+        refused_ok = sum(1 for r in ooc if r.get("refusal_correct"))
+        ooc_rate = refused_ok / n_ooc
+        ooc_sim = sum(r.get("avg_similarity", 0) for r in ooc) / n_ooc
+        print(f"\nRefusal Axis — Out-of-Corpus Probes (N={n_ooc})")
+        print(f"  Retrieval-refusal rate: {refused_ok}/{n_ooc} ({ooc_rate:.1%})  "
+              f"[top-3 sim below threshold]")
+        print(f"  Avg OOC similarity:     {ooc_sim:.3f}  (lower is better)")
+        print(f"  LLM-judged refusal rate: [RUN REQUIRED]  (needs --full + live model)")
+        refusal_summary = {
+            "out_of_corpus_probes":    n_ooc,
+            "retrieval_refusal_rate":  round(ooc_rate, 3),
+            "retrieval_refused_ok":    refused_ok,
+            "avg_ooc_similarity":      round(ooc_sim, 3),
+            "llm_judged_refusal_rate": "[RUN REQUIRED]",
+        }
 
     answer_summary: Dict = {}
-    if full_eval and any("answer_score" in r for r in results):
-        a_passed = sum(1 for r in results if r.get("answer_pass", False))
-        avg_relevance = sum(r.get("answer_relevance", 0) for r in results) / r_total
-        avg_faithfulness = sum(r.get("faithfulness", 0) for r in results) / r_total
-        avg_score = sum(r.get("answer_score", 0) for r in results) / r_total
+    if full_eval and any("answer_score" in r for r in in_corpus) and n_in:
+        a_passed = sum(1 for r in in_corpus if r.get("answer_pass", False))
+        avg_ans_relevance  = sum(r.get("answer_relevance", 0) for r in in_corpus) / n_in
+        avg_faithfulness   = sum(r.get("faithfulness", 0) for r in in_corpus) / n_in
+        avg_score          = sum(r.get("answer_score", 0) for r in in_corpus) / n_in
 
-        print(f"\nAnswer Quality")
-        print(f"  Pass rate:            {a_passed}/{r_total} ({a_passed/r_total:.1%})")
-        print(f"  Avg answer relevance: {avg_relevance:.1%}")
-        print(f"  Avg faithfulness:     {avg_faithfulness:.1%}")
+        print(f"\nAnswer Quality [heuristic — NOT LLM-judge] (in-corpus, N={n_in})")
+        print(f"  Pass rate:            {a_passed}/{n_in} ({a_passed/n_in:.1%})")
+        print(f"  Avg answer relevance: {avg_ans_relevance:.1%}")
+        print(f"  Avg faithfulness:     {avg_faithfulness:.1%}  [heuristic]")
         print(f"  Avg score:            {avg_score:.2f}/1.00")
 
-        if avg_score >= 0.65:
-            print("  → ✅ GOOD answer quality")
-        elif avg_score >= 0.40:
-            print("  → ⚠️  FAIR — answers could be more grounded/detailed")
-        else:
-            print("  → ❌ POOR — check prompt template and LLM model")
-
         answer_summary = {
-            "pass_rate": round(a_passed / r_total, 3),
-            "avg_answer_relevance": round(avg_relevance, 3),
-            "avg_faithfulness": round(avg_faithfulness, 3),
-            "avg_score": round(avg_score, 3),
+            "pass_rate":            round(a_passed / n_in, 3),
+            "avg_answer_relevance": round(avg_ans_relevance, 3),
+            "avg_faithfulness":     round(avg_faithfulness, 3),
+            "avg_score":            round(avg_score, 3),
+        }
+
+    # LLM-judge aggregate (only if scores present)
+    judge_scores = [r["llm_judge"] for r in results if r.get("llm_judge", {}).get("parse_ok")]
+    judge_summary: Dict = {}
+    if judge_scores:
+        avg_judge_faith = sum(s["faithfulness"] for s in judge_scores) / len(judge_scores)
+        avg_judge_corr  = sum(s["answer_correctness"] for s in judge_scores) / len(judge_scores)
+        print(f"\nAnswer Quality [LLM-judge: {judge_scores[0].get('judge_model', '?')}]")
+        print(f"  Avg faithfulness:     {avg_judge_faith:.3f}")
+        print(f"  Avg answer correct:   {avg_judge_corr:.3f}")
+        judge_summary = {
+            "judged_cases":        len(judge_scores),
+            "avg_faithfulness":    round(avg_judge_faith, 3),
+            "avg_answer_correct":  round(avg_judge_corr, 3),
+            "judge_model":         judge_scores[0].get("judge_model", "unknown"),
         }
 
     benchmarks = compute_latency_benchmarks(results)
@@ -462,26 +679,28 @@ def print_summary(results: List[Dict], full_eval: bool) -> Dict:
         print(f"  Total    p50: {benchmarks['total']['p50']}s  "
               f"p95: {benchmarks['total']['p95']}s")
 
-    if r_rate < 0.70:
-        print("\nImprovement suggestions:")
-        print("  1. Use bge-base embedding model (stronger for technical text)")
-        print("  2. Increase chunk_size to 1500 for more context per chunk")
-        print("  3. Increase chunk_overlap to 300 for better boundary handling")
-        print("  4. Index more 3GPP spec series (23.xxx, 36.xxx, 38.xxx)")
-
     print("=" * 60 + "\n")
 
     return {
         "retrieval": {
-            "pass_rate": round(r_rate, 3),
-            "passed": r_passed,
-            "total": r_total,
+            # Standard IR — in-corpus (answerable) queries only
+            "scope":             "in_corpus",
+            "avg_hit_rate_at_k": round(avg_hit_rate, 3),
+            "avg_recall_at_k":   round(avg_recall, 3),
+            "avg_mrr":           round(avg_mrr, 3),
+            "avg_ndcg_at_k":     round(avg_ndcg, 3),
+            # Heuristic (legacy compat)
+            "pass_rate":         round(r_rate, 3),
+            "passed":            r_passed,
+            "total":             n_in,
             "avg_context_precision": round(avg_precision, 3),
-            "avg_context_recall": round(avg_recall, 3),
-            "avg_similarity": round(avg_sim, 3),
+            "avg_context_recall":    round(avg_recall_kw, 3),
+            "avg_similarity":        round(avg_sim, 3),
         },
-        "answer": answer_summary,
-        "latency": benchmarks,
+        "refusal":    refusal_summary,
+        "answer":     answer_summary,
+        "llm_judge":  judge_summary,
+        "latency":    benchmarks,
     }
 
 
@@ -493,10 +712,31 @@ def main():
     parser = argparse.ArgumentParser(
         description="Evaluate 3GPP RAG pipeline quality",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__,
     )
     parser.add_argument(
         "--full", action="store_true",
-        help="Run answer quality evaluation (requires Ollama)",
+        help="Run heuristic answer quality evaluation (requires Ollama)",
+    )
+    parser.add_argument(
+        "--judge", action="store_true",
+        help="Run LLM-judge faithfulness + answer-correctness [RUN REQUIRED]",
+    )
+    parser.add_argument(
+        "--judge-provider", default="groq", choices=["groq", "ollama"],
+        help="LLM provider for the judge (default: groq)",
+    )
+    parser.add_argument(
+        "--judge-model", default=None,
+        help="Override judge model name",
+    )
+    parser.add_argument(
+        "--golden", default="data/eval/golden_set.jsonl",
+        help="Path to golden JSONL dataset (default: data/eval/golden_set.jsonl)",
+    )
+    parser.add_argument(
+        "--no-golden", action="store_true",
+        help="Use legacy 10-query inline test cases instead of golden set",
     )
     parser.add_argument(
         "--output", default="data/eval_results.json",
@@ -510,21 +750,53 @@ def main():
         "--no-save", action="store_true",
         help="Skip saving results to disk",
     )
+    parser.add_argument(
+        "--regression", action="store_true",
+        help="Compare to stored baseline; exit non-zero on regression (CI gate)",
+    )
+    parser.add_argument(
+        "--save-baseline", action="store_true",
+        help="Save this run's summary as the new regression baseline",
+    )
+    parser.add_argument(
+        "--baseline", default="data/eval/baseline.json",
+        help="Path to regression baseline file (default: data/eval/baseline.json)",
+    )
     args = parser.parse_args()
 
     from src.core.vector_store import VectorStore
     vs_stats = VectorStore().get_stats()
     if vs_stats["total_chunks"] == 0:
-        print("\n❌ Vector store is empty. Run: python scripts/build_index.py\n")
+        print("\n  Vector store is empty. Run: python scripts/build_index.py\n")
         sys.exit(1)
+
+    # Decide which test cases to use
+    if args.no_golden:
+        test_cases = LEGACY_TEST_CASES
+        dataset_label = "legacy 10-query inline cases"
+    else:
+        try:
+            test_cases = load_golden_set(args.golden)
+            dataset_label = f"golden set ({args.golden}, {len(test_cases)} cases)"
+        except FileNotFoundError:
+            print(f"\n  Golden set not found at {args.golden}. "
+                  f"Falling back to legacy test cases. "
+                  f"Run with --no-golden to suppress this warning.\n")
+            test_cases = LEGACY_TEST_CASES
+            dataset_label = "legacy 10-query inline cases (fallback)"
 
     print(f"\n{'='*60}")
     print("3GPP RAG Pipeline Evaluation")
     print(f"{'='*60}")
     print(f"Vector store:  {vs_stats['total_chunks']} chunks")
-    print(f"Test cases:    {len(TEST_CASES)}")
+    print(f"Dataset:       {dataset_label}")
     print(f"Top-k:         {args.top_k}")
-    print(f"Mode:          {'Full (retrieval + answer)' if args.full else 'Retrieval only'}")
+    mode_parts = ["Retrieval"]
+    if args.full:
+        mode_parts.append("heuristic-answer")
+    if args.judge:
+        mode_parts.append(f"LLM-judge ({args.judge_provider})")
+    print(f"Mode:          {' + '.join(mode_parts)}")
 
     retriever = DocumentRetriever(top_k=args.top_k)
 
@@ -534,15 +806,23 @@ def main():
     print("=" * 60)
 
     retrieval_results = []
-    for i, case in enumerate(TEST_CASES, 1):
+    for i, case in enumerate(test_cases, 1):
         result = evaluate_retrieval_case(retriever, case)
         _print_retrieval_result(i, result)
         retrieval_results.append(result)
 
-    # Answer quality evaluation (optional)
+    # Heuristic answer quality (optional)
     final_results = retrieval_results
     if args.full:
-        final_results = run_answer_eval(retriever, retrieval_results)
+        final_results = run_answer_eval(retriever, retrieval_results, test_cases)
+
+    # LLM-judge path (optional, [RUN REQUIRED] without live LLM)
+    if args.judge:
+        final_results = run_llm_judge_eval(
+            final_results, test_cases,
+            provider=args.judge_provider,
+            model=args.judge_model,
+        )
 
     summary = print_summary(final_results, full_eval=args.full)
 
@@ -550,11 +830,14 @@ def main():
     if not args.no_save:
         import datetime
         save_data = {
-            "evaluated_at": datetime.datetime.utcnow().isoformat() + "Z",
+            "evaluated_at":  datetime.datetime.utcnow().isoformat() + "Z",
             "config": {
-                "top_k": args.top_k,
-                "full_eval": args.full,
-                "total_chunks": vs_stats["total_chunks"],
+                "top_k":         args.top_k,
+                "full_eval":     args.full,
+                "judge_eval":    args.judge,
+                "judge_provider": args.judge_provider if args.judge else None,
+                "total_chunks":  vs_stats["total_chunks"],
+                "dataset":       dataset_label,
             },
             "summary": summary,
             "cases": [
@@ -567,6 +850,26 @@ def main():
         with open(out_path, "w") as f:
             json.dump(save_data, f, indent=2)
         print(f"Results saved to {out_path}")
+
+    # Save baseline
+    if args.save_baseline:
+        save_baseline(summary, baseline_path=args.baseline)
+
+    # Regression check
+    if args.regression:
+        print(f"\n{'='*60}")
+        print("Regression Check")
+        print("=" * 60)
+        print_comparison_table(summary, baseline_path=args.baseline)
+        regressions = compare_to_baseline(summary, baseline_path=args.baseline)
+        if regressions:
+            print("\nREGRESSIONS DETECTED:")
+            for r in regressions:
+                print(f"  {r}")
+            print(f"\nTotal regressions: {len(regressions)}")
+            sys.exit(1)
+        else:
+            print("No regressions detected.")
 
 
 if __name__ == "__main__":

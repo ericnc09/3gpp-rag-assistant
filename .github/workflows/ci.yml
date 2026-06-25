@@ -49,3 +49,15 @@ jobs:
       with:
         file: ./coverage.xml
         fail_ci_if_error: false
+
+    - name: Run eval regression
+      run: |
+        # The regression gate needs both a committed baseline AND the built
+        # vector index. The 43k-chunk index is not committed (shipped as a
+        # GitHub Release asset), so this gate runs locally / pre-push, not in
+        # stock CI. Skip cleanly when the index is absent.
+        if [ -f data/eval/baseline.json ] && [ -f data/vectordb/chroma.sqlite3 ]; then
+          python scripts/eval_retrieval.py --regression
+        else
+          echo "Skipping eval regression: needs data/eval/baseline.json + a built index (data/vectordb)."
+        fi

@@ -24,7 +24,8 @@ Thank you for considering contributing to this project! Here are some guidelines
 4. **Set up environment variables**
    ```bash
    cp .env.example .env
-   # Add your OPENAI_API_KEY and other settings
+   # Cloud mode: add your GROQ_API_KEY (free at https://console.groq.com/keys)
+   # Local mode: set LLM_PROVIDER=ollama — no API key needed
    ```
 
 ## Development Workflow
