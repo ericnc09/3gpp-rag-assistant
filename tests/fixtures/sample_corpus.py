@@ -9,12 +9,12 @@ correct chunks are retrievable by any reasonable similarity function.
 PURPOSE
 -------
 These fixtures exist to make the eval harness runnable end-to-end WITHOUT the
-full 44,290-chunk index. They let CI and reviewers verify that every metric
+full 43,121-chunk index. They let CI and reviewers verify that every metric
 function (Recall@k, MRR, nDCG@k, hit-rate, heuristic metrics) produces a
 real, reproducible number against a controlled input.
 
 IMPORTANT — these are a smoke-test fixture, not a quality benchmark.
-  - 10 chunks vs 44,290 in the real index.
+  - 10 chunks vs 43,121 in the real index.
   - 6 queries vs 25 in the full golden set.
   - Numbers from this fixture are labeled "sample fixture" everywhere they appear.
   - They say nothing about full-corpus retrieval quality.

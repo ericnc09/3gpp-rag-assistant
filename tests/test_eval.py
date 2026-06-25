@@ -351,7 +351,7 @@ class TestEvalEndpoint:
         eval_dir.mkdir()
         eval_data = {
             "evaluated_at": "2026-02-19T00:00:00Z",
-            "config": {"top_k": 5, "full_eval": False, "total_chunks": 44290},
+            "config": {"top_k": 5, "full_eval": False, "total_chunks": 43121},
             "summary": {
                 "retrieval": {"pass_rate": 0.8, "passed": 8, "total": 10},
                 "answer": {},
@@ -365,7 +365,7 @@ class TestEvalEndpoint:
         assert data["available"] is True
         assert data["evaluated_at"] == "2026-02-19T00:00:00Z"
         assert data["summary"]["retrieval"]["pass_rate"] == 0.8
-        assert data["config"]["total_chunks"] == 44290
+        assert data["config"]["total_chunks"] == 43121
 
     def test_eval_summary_has_retrieval_key(self, client, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)

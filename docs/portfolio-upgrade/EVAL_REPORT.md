@@ -262,17 +262,16 @@ This gate is meaningful once a baseline is established from a full run on the co
 
 **Baseline file:** `data/eval/baseline.json` — created by `--save-baseline`, tracked in version control. Each baseline commit should note the index version and date it was produced.
 
-**Current baseline:** `data/eval/baseline.json` contains the sample fixture baseline (2026-06-23, 10 chunks, 6 queries). This is a known-working baseline that enables the `--regression` flag to run without error out of the box. It should be replaced with a full-index baseline once the full eval is run: `python scripts/eval_retrieval.py --save-baseline`.
+**Current baseline:** `data/eval/baseline.json` is the full-index baseline (2026-06-25, 43,121 chunks, 25 in-corpus queries), tracked in version control so `--regression` compares like-for-like. Regenerate after an index or model change with `python scripts/eval_retrieval.py --save-baseline`.
 
-**Sample baseline values (fixture, 2026-06-23):**
-- avg_hit_rate_at_k: 1.000
-- avg_recall_at_k: 1.000
-- avg_mrr: 1.000
-- avg_ndcg_at_k: 0.984
-- avg_context_precision: 0.300
-- avg_context_recall: 0.958
-- retrieve p50: ~0.000045s
-- retrieve p95: ~0.000065s
+**Committed baseline values (full index, in-corpus N=25):**
+- avg_hit_rate_at_k: 0.880
+- avg_recall_at_k: 0.640
+- avg_mrr: 0.679
+- avg_ndcg_at_k: 0.723
+- avg_context_precision: 0.440
+- avg_context_recall: 0.714
+- retrieve p50 / p95: ~0.021s / ~0.048s
 
 ---
 

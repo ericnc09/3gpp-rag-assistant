@@ -1,6 +1,6 @@
 """
 Self-contained sample eval — runs the full harness end-to-end over a tiny
-fixture corpus without requiring the full 44,290-chunk index or any LLM.
+fixture corpus without requiring the full 43,121-chunk index or any LLM.
 
 PURPOSE
 -------
@@ -283,7 +283,7 @@ def _print_results(summary: Dict) -> None:
             f"{m['mrr']:>6.3f} {m['ndcg_at_k']:>6.4f} {r['ndcg_at_k_graded']:>7.4f}  {top_src}"
         )
     print()
-    print("  [NOTE] These numbers are from a 10-chunk fixture, not the full 44,290-chunk")
+    print("  [NOTE] These numbers are from a 10-chunk fixture, not the full 43,121-chunk")
     print("         index. They confirm the harness runs correctly. Full-index numbers")
     print("         require the built ChromaDB index: see EVAL_REPORT.md §5.")
     print()

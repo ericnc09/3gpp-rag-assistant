@@ -39,7 +39,7 @@ Milestones are defined by the outcome they unlock, the metric that confirms them
 - A versioned golden dataset (`data/eval/golden_set.jsonl`) with ground-truth sources and expected facts — real and checkable against the corpus
 - LLM-judge faithfulness and answer-correctness path (configurable Groq or Ollama judge)
 - `--regression` mode: non-zero exit if any metric falls below the stored baseline
-- `EVAL_REPORT.md` documenting methodology, limitations, current numbers (2026-02-27), and `[RUN REQUIRED]` placeholders for what needs the full index + LLM
+- `EVAL_REPORT.md` documenting methodology, limitations, current numbers (2026-06-25 full-index run), and `[RUN REQUIRED]` placeholders for what needs a live LLM
 
 **Metric that confirms it:** Retrieval pass rate and Recall@5 reproducible with a single command; LLM-judge faithfulness run and published.  
 **Status:** Harness expansion and golden dataset are under active development (Stream B). LLM-judge results require a run on the live index — marked `[RUN REQUIRED]` until Eric runs it.
