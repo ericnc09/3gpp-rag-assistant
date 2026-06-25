@@ -45,13 +45,15 @@ from typing import List, Dict, Optional
 def _is_relevant(doc: Dict, relevant_sources: List[str]) -> bool:
     """Return True when the doc's source filename contains any relevant spec token.
 
-    Matching rules (tightened from plain substring):
-      1. Token match on spec number: "38300" matches "ts_38.300-g10.docx" because
-         the digits appear as a contiguous spec-number token (dot-separated or
-         underscore-separated), not as an accidental substring of a longer number.
-         Specifically, each relevant_source string is matched against the source
-         using a word-boundary-aware regex: the token must be preceded and followed
-         by a non-digit character (or the start/end of the string).
+    Matching rules (tightened from plain substring). The corpus uses bare-digit
+    spec filenames such as "38300-g10.docx" and "38401.docx":
+      1. Token match on spec number: "38300" matches "38300-g10.docx" because the
+         digits appear as a contiguous spec-number token, not as an accidental
+         substring of a longer number. Each relevant_source string is matched
+         against the source using a word-boundary-aware regex: the token must be
+         preceded and followed by a non-digit character (or the start/end of the
+         string). So "38300" does NOT match "383001-h10.docx", and "300" does NOT
+         match "38300-g10.docx".
       2. Case-insensitive on the source path.
 
     This prevents "300" matching "38300" or "38001" matching "38300".
@@ -68,7 +70,7 @@ def _is_relevant(doc: Dict, relevant_sources: List[str]) -> bool:
         return False
     for rs in relevant_sources:
         # Require that the spec number is not flanked by other digits.
-        # Handles: "ts_38.300-g10.docx", "38300.pdf", "TS38300-h20.docx"
+        # Handles: "38300-g10.docx", "38300.pdf", "TS38300-h20.docx"
         pattern = r'(?<!\d)' + re.escape(rs) + r'(?!\d)'
         if re.search(pattern, source, re.IGNORECASE):
             return True

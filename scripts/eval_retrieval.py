@@ -220,6 +220,7 @@ def evaluate_retrieval_case(retriever: DocumentRetriever, case: Dict) -> Dict:
     query = case["query"]
     relevant_sources = case.get("relevant_sources", [])
     expected_keywords = case.get("expected_keywords", [])
+    graded_relevance = case.get("graded_relevance")  # {spec: 0/1/2} where labeled
     min_sim = case.get("min_similarity", 0.50)
     k = case.get("k", 5)
 
@@ -259,6 +260,7 @@ def evaluate_retrieval_case(retriever: DocumentRetriever, case: Dict) -> Dict:
         relevant_sources=relevant_sources,
         expected_keywords=expected_keywords,
         k=k,
+        graded_relevance=graded_relevance,  # graded nDCG where labeled; binary fallback
     )
 
     avg_sim = sum(d["similarity"] for d in docs[:3]) / min(3, len(docs))

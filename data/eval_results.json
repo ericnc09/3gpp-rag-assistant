@@ -1,5 +1,5 @@
 {
-  "evaluated_at": "2026-06-25T02:04:27.650813Z",
+  "evaluated_at": "2026-06-25T02:22:20.534139Z",
   "config": {
     "top_k": 5,
     "full_eval": false,
@@ -14,7 +14,7 @@
       "avg_hit_rate_at_k": 0.88,
       "avg_recall_at_k": 0.64,
       "avg_mrr": 0.679,
-      "avg_ndcg_at_k": 0.729,
+      "avg_ndcg_at_k": 0.723,
       "pass_rate": 0.72,
       "passed": 18,
       "total": 25,
@@ -33,9 +33,9 @@
     "llm_judge": {},
     "latency": {
       "retrieve": {
-        "p50": 0.0205,
+        "p50": 0.0217,
         "p95": 0.0484,
-        "mean": 0.0439
+        "mean": 0.0437
       }
     }
   },
@@ -49,7 +49,7 @@
       "hit_rate_at_k": 1.0,
       "recall_at_k": 1.0,
       "mrr": 1.0,
-      "ndcg_at_k": 1.0,
+      "ndcg_at_k": 0.8656,
       "context_precision": 1.0,
       "context_recall": 0.5,
       "context_recall_keywords": 0.5,
@@ -57,7 +57,7 @@
       "min_similarity": 0.5,
       "top_source": "38401.docx",
       "num_results": 5,
-      "retrieve_time": 0.5053
+      "retrieve_time": 0.4521
     },
     {
       "id": "gs-002",
@@ -68,7 +68,7 @@
       "hit_rate_at_k": 1.0,
       "recall_at_k": 1.0,
       "mrr": 1.0,
-      "ndcg_at_k": 1.0,
+      "ndcg_at_k": 0.9795,
       "context_precision": 1.0,
       "context_recall": 1.0,
       "context_recall_keywords": 1.0,
@@ -76,7 +76,7 @@
       "min_similarity": 0.5,
       "top_source": "38473.docx",
       "num_results": 5,
-      "retrieve_time": 0.044
+      "retrieve_time": 0.0465
     },
     {
       "id": "gs-003",
@@ -95,7 +95,7 @@
       "min_similarity": 0.5,
       "top_source": "38413.docx",
       "num_results": 5,
-      "retrieve_time": 0.0497
+      "retrieve_time": 0.0454
     },
     {
       "id": "gs-004",
@@ -114,7 +114,7 @@
       "min_similarity": 0.5,
       "top_source": "38410.docx",
       "num_results": 5,
-      "retrieve_time": 0.0484
+      "retrieve_time": 0.0424
     },
     {
       "id": "gs-005",
@@ -133,7 +133,7 @@
       "min_similarity": 0.5,
       "top_source": "38331.docx",
       "num_results": 5,
-      "retrieve_time": 0.0414
+      "retrieve_time": 0.0537
     },
     {
       "id": "gs-006",
@@ -152,7 +152,7 @@
       "min_similarity": 0.5,
       "top_source": "38420.docx",
       "num_results": 5,
-      "retrieve_time": 0.0167
+      "retrieve_time": 0.0201
     },
     {
       "id": "gs-007",
@@ -171,7 +171,7 @@
       "min_similarity": 0.5,
       "top_source": "23501.docx",
       "num_results": 5,
-      "retrieve_time": 0.0197
+      "retrieve_time": 0.0211
     },
     {
       "id": "gs-008",
@@ -190,7 +190,7 @@
       "min_similarity": 0.5,
       "top_source": "38321.docx",
       "num_results": 5,
-      "retrieve_time": 0.0234
+      "retrieve_time": 0.0205
     },
     {
       "id": "gs-009",
@@ -209,7 +209,7 @@
       "min_similarity": 0.5,
       "top_source": "36331.docx",
       "num_results": 5,
-      "retrieve_time": 0.0436
+      "retrieve_time": 0.0473
     },
     {
       "id": "gs-010",
@@ -228,7 +228,7 @@
       "min_similarity": 0.5,
       "top_source": "38300.docx",
       "num_results": 5,
-      "retrieve_time": 0.0191
+      "retrieve_time": 0.018
     },
     {
       "id": "gs-011",
@@ -247,7 +247,7 @@
       "min_similarity": 0.5,
       "top_source": "38300.docx",
       "num_results": 5,
-      "retrieve_time": 0.0395
+      "retrieve_time": 0.0405
     },
     {
       "id": "gs-012",
@@ -266,7 +266,7 @@
       "min_similarity": 0.5,
       "top_source": "38323.docx",
       "num_results": 5,
-      "retrieve_time": 0.0173
+      "retrieve_time": 0.0217
     },
     {
       "id": "gs-013",
@@ -285,7 +285,7 @@
       "min_similarity": 0.5,
       "top_source": "38410.docx",
       "num_results": 5,
-      "retrieve_time": 0.0174
+      "retrieve_time": 0.0227
     },
     {
       "id": "gs-014",
@@ -304,7 +304,7 @@
       "min_similarity": 0.5,
       "top_source": "38401.docx",
       "num_results": 5,
-      "retrieve_time": 0.0375
+      "retrieve_time": 0.0408
     },
     {
       "id": "gs-015",
@@ -323,7 +323,7 @@
       "min_similarity": 0.5,
       "top_source": "38214.docx",
       "num_results": 5,
-      "retrieve_time": 0.0193
+      "retrieve_time": 0.0208
     },
     {
       "id": "gs-016",
@@ -342,7 +342,7 @@
       "min_similarity": 0.5,
       "top_source": "23501.docx",
       "num_results": 5,
-      "retrieve_time": 0.0218
+      "retrieve_time": 0.0209
     },
     {
       "id": "gs-017",
@@ -361,7 +361,7 @@
       "min_similarity": 0.5,
       "top_source": "38321.docx",
       "num_results": 5,
-      "retrieve_time": 0.0205
+      "retrieve_time": 0.0303
     },
     {
       "id": "gs-018",
@@ -380,7 +380,7 @@
       "min_similarity": 0.5,
       "top_source": "36322.docx",
       "num_results": 5,
-      "retrieve_time": 0.0199
+      "retrieve_time": 0.0179
     },
     {
       "id": "gs-019",
@@ -399,7 +399,7 @@
       "min_similarity": 0.5,
       "top_source": "36300.docx",
       "num_results": 5,
-      "retrieve_time": 0.0179
+      "retrieve_time": 0.0172
     },
     {
       "id": "gs-020",
@@ -418,7 +418,7 @@
       "min_similarity": 0.5,
       "top_source": "36423.docx",
       "num_results": 5,
-      "retrieve_time": 0.0432
+      "retrieve_time": 0.041
     },
     {
       "id": "gs-021",
@@ -437,7 +437,7 @@
       "min_similarity": 0.5,
       "top_source": "36300.docx",
       "num_results": 5,
-      "retrieve_time": 0.018
+      "retrieve_time": 0.0198
     },
     {
       "id": "gs-022",
@@ -456,7 +456,7 @@
       "min_similarity": 0.5,
       "top_source": "38300.docx",
       "num_results": 5,
-      "retrieve_time": 0.0201
+      "retrieve_time": 0.0162
     },
     {
       "id": "gs-023",
@@ -475,7 +475,7 @@
       "min_similarity": 0.5,
       "top_source": "23501.docx",
       "num_results": 5,
-      "retrieve_time": 0.0405
+      "retrieve_time": 0.0397
     },
     {
       "id": "gs-024",
@@ -494,7 +494,7 @@
       "min_similarity": 0.5,
       "top_source": "36331.docx",
       "num_results": 5,
-      "retrieve_time": 0.0193
+      "retrieve_time": 0.0164
     },
     {
       "id": "gs-025",
@@ -513,7 +513,7 @@
       "min_similarity": 0.5,
       "top_source": "38214.docx",
       "num_results": 5,
-      "retrieve_time": 0.0173
+      "retrieve_time": 0.0179
     },
     {
       "id": "neg-001",
@@ -532,7 +532,7 @@
       "min_similarity": 0.5,
       "top_source": "38321.docx",
       "num_results": 5,
-      "retrieve_time": 0.0206
+      "retrieve_time": 0.0216
     },
     {
       "id": "neg-002",
@@ -551,7 +551,7 @@
       "min_similarity": 0.5,
       "top_source": "36331.docx",
       "num_results": 5,
-      "retrieve_time": 0.0402
+      "retrieve_time": 0.0463
     },
     {
       "id": "neg-003",
@@ -570,7 +570,7 @@
       "min_similarity": 0.5,
       "top_source": "29274.docx",
       "num_results": 5,
-      "retrieve_time": 0.0186
+      "retrieve_time": 0.0204
     },
     {
       "id": "neg-004",
@@ -589,7 +589,7 @@
       "min_similarity": 0.5,
       "top_source": "36401.docx",
       "num_results": 5,
-      "retrieve_time": 0.0192
+      "retrieve_time": 0.0241
     },
     {
       "id": "neg-005",
@@ -608,7 +608,7 @@
       "min_similarity": 0.5,
       "top_source": "23402.docx",
       "num_results": 5,
-      "retrieve_time": 0.0382
+      "retrieve_time": 0.0484
     }
   ]
 }

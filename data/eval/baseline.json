@@ -4,14 +4,14 @@
       "avg_hit_rate_at_k": 0.88,
       "avg_recall_at_k": 0.64,
       "avg_mrr": 0.679,
-      "avg_ndcg_at_k": 0.729,
+      "avg_ndcg_at_k": 0.723,
       "avg_context_precision": 0.44,
       "avg_context_recall": 0.714
     },
     "latency": {
       "retrieve": {
-        "p50": 0.0232,
-        "p95": 0.0496
+        "p50": 0.0211,
+        "p95": 0.0474
       }
     }
   },

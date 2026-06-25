@@ -16,7 +16,7 @@ Milestones are defined by the outcome they unlock, the metric that confirms them
 
 ### M2: Production-ready multi-spec coverage
 **Outcome:** The same engineer can query across 37 specs spanning 5G NR, LTE, and Core — and filter by domain or generation — without touching config files.  
-**Success criteria met:** 44,290 chunks indexed from 37 specs; domain/generation filtering in UI and API; dedup-to-latest-version indexing prevents conflicting results across releases; `/catalog` endpoint shows indexed status per spec.  
+**Success criteria met:** 43,121 chunks indexed from 37 specs; domain/generation filtering in UI and API; dedup-to-latest-version indexing prevents conflicting results across releases; `/catalog` endpoint shows indexed status per spec.  
 **Key decisions closed:** Dedup to latest version (ADR-007); metadata-driven filtering via ChromaDB `where` clauses.  
 **What it proved:** The indexing and retrieval architecture scales to a real corpus without degrading query quality.
 
@@ -105,7 +105,7 @@ Milestones are defined by outcome and success criteria, not sprint dates.
 | Milestone | Status | Success criteria |
 |---|---|---|
 | M1: Working RAG over a single spec | Complete | End-to-end pipeline; cited answers; multi-turn UI |
-| M2: Multi-spec coverage (37 specs, domain/generation filtering) | Complete | 44,290 chunks indexed; metadata filtering in UI + API |
+| M2: Multi-spec coverage (37 specs, domain/generation filtering) | Complete | 43,121 chunks indexed; metadata filtering in UI + API |
 | M3: Public deploy, dual LLM path, security hardening | Complete | Live Streamlit Cloud app; 42 vulnerabilities resolved |
 | M4: Eval rigor (Recall@k, MRR, nDCG, LLM-judge) | In progress | Reproducible one-command harness; golden dataset; regression mode |
 | M5: Corpus-agnostic architecture | In progress | Documented seam in code; GENERALIZE.md; all 160 tests pass |

@@ -8,7 +8,7 @@ A production RAG system over 37 3GPP technical specifications — 43,121 chunks,
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Tests](https://img.shields.io/badge/tests-300%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-302%20passing-brightgreen.svg)](#testing)
 [![Specs](https://img.shields.io/badge/3GPP%20specs-37%20indexed-blue.svg)](#architecture)
 [![Chunks](https://img.shields.io/badge/chunks-43%2C121-blue.svg)](#architecture)
 
@@ -50,14 +50,14 @@ This system closes that gap. An engineer types a question in plain English; the 
 > Eval report with full methodology: [`docs/portfolio-upgrade/EVAL_REPORT.md`](docs/portfolio-upgrade/EVAL_REPORT.md)
 > Reproduce: `python scripts/eval_retrieval.py --output data/eval_results.json`
 
-Current results from `data/eval_results.json` (run 2026-06-24, full index of 43,121 chunks, 30-query golden set, top-k=5). The golden set splits into 25 answerable (in-corpus) queries and 5 deliberately out-of-corpus probes; retrieval metrics are reported over the 25, the refusal axis over the 5.
+Current results from `data/eval_results.json` (run 2026-06-25, full index of 43,121 chunks, 30-query golden set, top-k=5). The golden set splits into 25 answerable (in-corpus) queries and 5 deliberately out-of-corpus probes; retrieval metrics are reported over the 25, the refusal axis over the 5.
 
 **Retrieval quality — in-corpus (N=25), standard IR metrics:**
 
 | Metric | Value | Notes |
 |---|---|---|
 | Hit-rate@5 | 0.88 | a relevant source appears in top-5 for 88% of queries |
-| nDCG@5 | 0.729 | rank-weighted; "GOOD" band in the harness |
+| nDCG@5 | 0.723 | rank-weighted; "GOOD" band in the harness |
 | MRR | 0.679 | first relevant hit lands high on average |
 | Recall@5 | 0.64 | fraction of all expected source specs surfaced |
 | Avg context precision | 0.44 | heuristic (keyword); supplementary, not IR-standard |
@@ -343,7 +343,7 @@ python scripts/eval_retrieval.py --output data/eval_results.json
 python scripts/eval_retrieval.py --full --output data/eval_results.json
 ```
 
-**300 tests, all mocked — no live services required. 308 including integration tests (which need a populated vector store).** `pytest tests/ --ignore=tests/test_integration.py` collects 300 and passes all of them in a clean virtual environment with the mocked dependencies in `conftest.py`. (In a dev venv that has drifted to starlette ≥0.36, 35 FastAPI route tests error on a known `on_startup` incompatibility — `requirements.txt` pins `starlette>=0.35,<0.36` to keep the suite green.)
+**302 tests, all mocked — no live services required. 310 including integration tests (which need a populated vector store).** `pytest tests/ --ignore=tests/test_integration.py` collects 302 and passes all of them in a clean virtual environment with the mocked dependencies in `conftest.py`. (In a dev venv that has drifted to starlette ≥0.36, 35 FastAPI route tests error on a known `on_startup` incompatibility — `requirements.txt` pins `starlette>=0.35,<0.36` to keep the suite green.)
 
 CI runs on Python 3.9, 3.10, 3.11 (GitHub Actions). Checks: flake8, black, pytest --cov, Codecov.
 
@@ -373,7 +373,7 @@ Unified PDF/DOCX/DOC ingestion, sentence-boundary chunking (1000 chars / 200 ove
 FastAPI with per-session history, SSE streaming, OpenAPI docs. Streamlit chat UI with domain/generation filter panel. Decision: streaming-first design — token-by-token output matters more than raw throughput for interactive use.
 
 **M3 — Eval harness + Docker deployment (shipped)**
-RAGAS-inspired eval (`scripts/eval_retrieval.py`): standard IR metrics (hit-rate@k, Recall@k, MRR, nDCG@k) plus heuristic context precision/recall, cosine similarity, latency p50/p95, and a regression gate. Docker + docker-compose for reproducible local deploy. Multi-stage Dockerfile (non-root user, HEALTHCHECK). Full-index eval (43,121 chunks, 25 in-corpus queries): hit-rate@5 0.88, nDCG@5 0.729, MRR 0.679.
+RAGAS-inspired eval (`scripts/eval_retrieval.py`): standard IR metrics (hit-rate@k, Recall@k, MRR, nDCG@k) plus heuristic context precision/recall, cosine similarity, latency p50/p95, and a regression gate. Docker + docker-compose for reproducible local deploy. Multi-stage Dockerfile (non-root user, HEALTHCHECK). Full-index eval (43,121 chunks, 25 in-corpus queries): hit-rate@5 0.88, nDCG@5 0.723, MRR 0.679.
 
 **M4 — Multi-spec domain filtering (shipped)**
 37-spec catalog across 5G NR RAN, LTE RAN, 5G Core, LTE Core. Metadata-tagged chunks (domain, generation, spec_number). Pre-retrieval ChromaDB `where` filters. Decision: metadata filtering over post-retrieval scoring — filtering before retrieval scales better and is more predictable.

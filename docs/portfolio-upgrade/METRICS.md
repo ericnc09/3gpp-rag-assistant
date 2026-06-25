@@ -21,7 +21,7 @@ Citation traceability is architectural (baked into the prompt and response schem
 ## Current eval results
 
 **Source file:** `data/eval_results.json`  
-**Evaluated:** 2026-06-24 (full index)  
+**Evaluated:** 2026-06-25 (full index)  
 **Index size:** 43,121 chunks across 37 specs (local/API index; the hosted Streamlit demo loads a 41,429-chunk subset sized for free-tier deployment)  
 **Dataset:** 30-query golden set (`data/eval/golden_set.jsonl`) — 25 in-corpus + 5 out-of-corpus refusal probes  
 **Eval mode:** `full_eval: false` — retrieval only; answer block empty (LLM answer eval not run)  
@@ -32,7 +32,7 @@ Citation traceability is architectural (baked into the prompt and response schem
 | Metric | Value | Notes |
 |---|---|---|
 | Hit-rate@5 | 0.88 | A relevant source appears in top-5 for 88% of queries |
-| nDCG@5 | 0.729 | Rank-weighted; "GOOD" band |
+| nDCG@5 | 0.723 | Rank-weighted; "GOOD" band |
 | MRR | 0.679 | First relevant hit is high in the list on average |
 | Recall@5 | 0.64 | Fraction of all expected source specs surfaced in top-5 |
 | Avg context precision | 0.44 | Heuristic (source-level keyword); supplementary, not IR-standard |
@@ -78,7 +78,7 @@ Recall@k, MRR, nDCG@k, and hit-rate are **implemented, unit-tested, and now meas
 |---|---|---|
 | Recall@k (k=5) | Fraction of ground-truth source specs found in top-k results | Measured: **0.64** (in-corpus, N=25) |
 | MRR (Mean Reciprocal Rank) | 1/rank of first relevant result, averaged across queries | Measured: **0.679** |
-| nDCG@k (k=5) | Normalised Discounted Cumulative Gain at k (graded relevance) | Measured: **0.729** |
+| nDCG@k (k=5) | Normalised Discounted Cumulative Gain at k (graded relevance) | Measured: **0.723** |
 | Hit rate@k (k=5) | 1.0 if any relevant result in top-k, else 0.0; averaged | Measured: **0.88** |
 | LLM-judge faithfulness | Judge model assesses whether each answer is grounded in retrieved context | Implemented in `scripts/eval/judge.py`; `[RUN REQUIRED]` (needs live LLM) |
 | LLM-judge answer correctness | Judge model assesses factual accuracy within the context window | Implemented in `scripts/eval/judge.py`; `[RUN REQUIRED]` (needs live LLM) |
@@ -107,22 +107,24 @@ These are operational, not quality, metrics.
 
 ## Test coverage metrics
 
-Source: `pytest --collect-only` (verified on `portfolio-upgrade` branch). 300 mocked tests collected excluding integration suite; 308 including 8 integration tests. No live services required for the mocked suite. In a clean environment all 300 pass; in a dev venv with starlette ≥0.36 the 35 FastAPI route tests error on a known `on_startup` incompatibility, which `requirements.txt` now pins out (`starlette>=0.35,<0.36`).
+Source: `pytest --collect-only` (verified on `portfolio-upgrade` branch). 302 mocked tests collected excluding integration suite; 310 including 8 integration tests. No live services required for the mocked suite. In a clean environment all 302 pass; in a dev venv that has drifted to starlette ≥0.36 the 35 FastAPI route tests error on a known `on_startup` incompatibility, which `requirements.txt` pins out (`starlette>=0.35,<0.36`).
 
-| Module | Tests | Coverage (measured) |
-|---|---|---|
-| `embeddings.py` | 14 | 63% |
-| `vector_store.py` | 11 | 88% |
-| `retriever.py` | 15 | 53% |
-| `llm.py` | 9 | 61% |
-| `rag_chain.py` | 14 | 75% |
-| `metrics.py` | 21 | 77% |
-| `api/main.py` | 30 | — |
-| `eval_retrieval.py` | 40 | — |
-| **Total (mocked, excl. integration)** | **300** | — |
-| **Total (incl. 8 integration tests)** | **308** | — |
+| Test module | Tests |
+|---|---|
+| `test_eval_metrics.py` | 103 |
+| `test_api.py` | 30 |
+| `test_retriever.py` | 16 |
+| `test_rag_chain.py` | 14 |
+| `test_embeddings.py` | 12 |
+| `test_vector_store.py` | 11 |
+| `test_llm.py` | 9 |
+| Other unit suites (`test_corpus_config`, `test_document_processor`, `test_spec_catalog`, `test_config`, eval endpoint, …) | 107 |
+| **Total (mocked, excl. integration)** | **302** |
+| **Total (incl. 8 integration tests)** | **310** |
 
-**Run with (mocked suite, 300 tests):** `pytest tests/ --ignore=tests/test_integration.py --cov=src --cov-report=term-missing`
+Coverage is measured per source module and reported by CI (Codecov); see the workflow badge.
+
+**Run with (mocked suite, 302 tests):** `pytest tests/ --ignore=tests/test_integration.py --cov=src --cov-report=term-missing`
 
 ---
 
@@ -132,4 +134,4 @@ Source: `pytest --collect-only` (verified on `portfolio-upgrade` branch). 300 mo
 
 **Context recall** is defined as: fraction of expected keywords (manually specified per query in the eval set) found anywhere across the top-3 retrieved chunks. This is a heuristic, not a gold-standard recall measure. It depends on keyword choice, which is manual.
 
-Both heuristic metrics are honest proxies for a harder measurement, kept as supplementary signals alongside the standard IR metrics. The standard IR view (hit-rate@5 0.88, nDCG@5 0.729) is the primary read; the heuristic context precision (0.44) is deliberately strict (source-filename match) and runs lower. An LLM-judge eval would give a more reliable picture of whether answers are actually useful — it stays `[RUN REQUIRED]` pending a live model.
+Both heuristic metrics are honest proxies for a harder measurement, kept as supplementary signals alongside the standard IR metrics. The standard IR view (hit-rate@5 0.88, nDCG@5 0.723) is the primary read; the heuristic context precision (0.44) is deliberately strict (source-filename match) and runs lower. An LLM-judge eval would give a more reliable picture of whether answers are actually useful — it stays `[RUN REQUIRED]` pending a live model.

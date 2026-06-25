@@ -31,7 +31,7 @@ Answer quality is bounded by retrieval quality. A retrieval miss is a silent fai
 
 ### Outcome
 
-Indexed 44,290 chunks across 37 specs. Eval results (2026-02-27) show retrieval pass rate 6/10 with avg context precision 1.0 — meaning retrieved chunks come from the right sources when retrieval passes. The 4 failures are recall misses, not precision errors. That's a useful signal: the system retrieves relevant material when it retrieves at all, but it occasionally retrieves nothing useful for terse or ambiguous queries.
+Indexed 43,121 chunks across 37 specs. The full-index eval (2026-06-25, 25 in-corpus queries) shows hit-rate@5 0.88 and Recall@5 0.64 — the system surfaces a relevant source for most queries, but multi-spec recall lags (it often returns one of two expected specs). The genuine misses cluster on comparison/interface queries (E1, SA-vs-NSA, NR-vs-LTE PHY) where the question phrasing diverges from spec terminology — a recall/phrasing problem, not a precision error.
 
 ---
 
@@ -97,7 +97,7 @@ Embedding model is baked into the index at build time. Changing the model requir
 
 ### Outcome
 
-`bge-small` is the default for both local and cloud paths. Eval average cosine similarity is 0.51 across the 10-query set (2026-02-27). The cloud deploy uses ChromaDB's built-in ONNX embedding path (see ADR-005), which bypasses the Python sentence-transformers model entirely.
+`bge-small` is the default for both local and cloud paths. Eval average cosine similarity is 0.557 across the 25 in-corpus queries (2026-06-25) — note bge-small runs cool, which is why the legacy 0.50 similarity threshold under-passes some correctly-retrieved queries (see EVAL_REPORT §6.2). The cloud deploy uses ChromaDB's built-in ONNX embedding path (see ADR-005), which bypasses the Python sentence-transformers model entirely.
 
 ---
 
@@ -130,7 +130,7 @@ Character-based chunking doesn't respect semantic structure — a table row and 
 
 ### Outcome
 
-44,290 chunks from 37 specs at this chunk size. The eval latency at p50 is 0.325s for retrieval (2026-02-27), which is acceptable. No individual case shows retrieval latency above 1.2s.
+43,121 chunks from 37 specs at this chunk size. The full-index eval latency at p50 is 0.021s for retrieval (2026-06-25, p95 0.048s), comfortably within budget. No individual case shows retrieval latency above ~0.05s once the embedding model is warm.
 
 ---
 
@@ -234,7 +234,7 @@ If a user specifically wants to query an older release, they cannot today withou
 
 ### Outcome
 
-37 specs indexed, one file per spec (the latest available download). 44,290 chunks. The dedup logic is tested implicitly through the 40 eval tests in `tests/test_eval.py` and the index build output.
+37 specs indexed, one file per spec (the latest available download). 43,121 chunks. The dedup logic is exercised through the eval test suite and the index build output.
 
 ---
 

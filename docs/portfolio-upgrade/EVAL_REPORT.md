@@ -1,6 +1,6 @@
 # Evaluation Report — 3GPP RAG Assistant
 
-**Last run (full index):** 2026-06-24 (see `data/eval_results.json`)
+**Last run (full index):** 2026-06-25 (see `data/eval_results.json`)
 **Last run (sample fixture):** 2026-06-23 (see `data/eval/sample_results.json`)
 **Harness version:** v3 (graded nDCG; negative/refusal cases; in-corpus/refusal split; sample fixture; tightened relevance matching)
 **Index size:** 43,121 chunks (local/API index; the hosted Streamlit demo loads a 41,429-chunk subset sized for free-tier deployment)
@@ -12,7 +12,7 @@
 
 ## Overview
 
-This document defines every metric in the eval harness, explains why it matters, states its limitations honestly, and cites the current real numbers from the 2026-06-24 full-index run (43,121 chunks, 30-query golden set). Standard IR metrics are reported over the 25 in-corpus queries; the refusal axis over the 5 out-of-corpus probes. Anything requiring a live LLM (the LLM-judge metrics) is marked **[RUN REQUIRED]** — those placeholders are the correct deliverable when the infrastructure is not available at report-generation time.
+This document defines every metric in the eval harness, explains why it matters, states its limitations honestly, and cites the current real numbers from the 2026-06-25 full-index run (43,121 chunks, 30-query golden set). Standard IR metrics are reported over the 25 in-corpus queries; the refusal axis over the 5 out-of-corpus probes. Anything requiring a live LLM (the LLM-judge metrics) is marked **[RUN REQUIRED]** — those placeholders are the correct deliverable when the infrastructure is not available at report-generation time.
 
 ---
 
@@ -73,7 +73,7 @@ The gain at each rank is discounted: gain(rank) = gain / log2(rank + 1). The sco
 
 **Limitation:** Binary relevance flattens the distinction between a highly relevant chunk and a marginally relevant one. Graded relevance is more informative but requires additional annotation effort. A subset of 7 golden-set queries now carry graded labels (see §3).
 
-**Current value (full index, in-corpus N=25):** **0.729** (graded nDCG@5) — the harness reports this as a "GOOD" band. This is the single most complete retrieval signal in the report: it credits both early placement and multiple relevant chunks.
+**Current value (full index, in-corpus N=25):** **0.723** (graded nDCG@5) — the harness reports this as a "GOOD" band. This is the single most complete retrieval signal in the report: it credits both early placement and multiple relevant chunks.
 
 **Sample fixture result (2026-06-23):**
 - nDCG@5 binary: **0.984** (avg over 6 fixture queries)
@@ -94,7 +94,7 @@ These were the original harness metrics. They are keyword-based heuristics, not 
 
 **Limitation:** In a domain-specific RAG corpus, this metric is easily near-1.0 without any real quality signal. It cannot distinguish between a retriever that returns the specific relevant spec section vs. any spec section. It is NOT IR-standard precision. The name is kept for API compatibility.
 
-**Full-index result (2026-06-24, in-corpus N=25):** avg_context_precision = **0.44**. This is lower than the old 10-query figure (1.0) because the 30-query golden set is harder and broader, and because this strict source-filename definition penalizes retrieving a *related* spec section that isn't the exact expected file. It is a deliberately conservative heuristic, not the primary signal — read it alongside hit-rate@5 (0.88).
+**Full-index result (2026-06-25, in-corpus N=25):** avg_context_precision = **0.44**. This is lower than the old 10-query figure (1.0) because the 30-query golden set is harder and broader, and because this strict source-filename definition penalizes retrieving a *related* spec section that isn't the exact expected file. It is a deliberately conservative heuristic, not the primary signal — read it alongside hit-rate@5 (0.88).
 
 ---
 
@@ -106,7 +106,7 @@ These were the original harness metrics. They are keyword-based heuristics, not 
 
 **Limitation:** Brittle for technical text. The same concept often appears under multiple terms ("gNB" vs "base station" vs "next-generation NodeB"). A chunk that perfectly explains the concept using different terminology will score 0 on a keyword it should score 1 on. This is part of why several in-corpus queries miss the legacy pass bar despite the retriever surfacing genuinely relevant chunks (see §6). This is NOT IR-standard recall.
 
-**Full-index result (2026-06-24, in-corpus N=25):** avg_context_recall = **0.71** (individual query scores range from 0.0 to 1.0)
+**Full-index result (2026-06-25, in-corpus N=25):** avg_context_recall = **0.71** (individual query scores range from 0.0 to 1.0)
 
 ---
 
@@ -118,7 +118,7 @@ These were the original harness metrics. They are keyword-based heuristics, not 
 
 **Limitation:** Latency is hardware- and load-dependent. These numbers were recorded on a specific machine (Apple M2, CPU only). The embedding model (bge-small ONNX) loads on first query, so a cold session's first query is slower; over a 30-query run the warm-up is amortized into p95.
 
-**Full-index results (2026-06-24, Apple M2 CPU, 30-query run):**
+**Full-index results (2026-06-25, Apple M2 CPU, 30-query run):**
 
 | Metric | Value |
 |---|---|
@@ -141,7 +141,7 @@ Fraction of expected answer keywords present in the generated response. Same bri
 #### Faithfulness (heuristic)
 Proxy for grounding: scores (a) presence of grounding vocabulary ("according to", "3GPP", "specification") and (b) word-overlap between the answer and the top retrieved chunk. This is a surface heuristic — it can be fooled by an answer that copies terminology from the retrieved chunk without actually being grounded in it.
 
-**2026-06-24 result:** answer block is **empty** (`{}`) — the baseline run is retrieval-only (`--full` not passed; no live LLM). Result is **[RUN REQUIRED]**.
+**2026-06-25 result:** answer block is **empty** (`{}`) — the baseline run is retrieval-only (`--full` not passed; no live LLM). Result is **[RUN REQUIRED]**.
 
 ---
 
@@ -350,16 +350,16 @@ Context precision of 0.3 is expected: the fixture index contains 10 chunks from 
 
 ---
 
-### 6.2 Full index baseline (2026-06-24) — production baseline
+### 6.2 Full index baseline (2026-06-25) — production baseline
 
-All numbers below come directly from `data/eval_results.json`, dated 2026-06-24. They were produced on the full 43,121-chunk local/API index using the 30-query golden set (25 in-corpus + 5 out-of-corpus refusal probes). Standard IR metrics are over the 25 in-corpus queries; the refusal axis over the 5. This is also the committed regression baseline (`data/eval/baseline.json`).
+All numbers below come directly from `data/eval_results.json`, dated 2026-06-25. They were produced on the full 43,121-chunk local/API index using the 30-query golden set (25 in-corpus + 5 out-of-corpus refusal probes). Standard IR metrics are over the 25 in-corpus queries; the refusal axis over the 5. This is also the committed regression baseline (`data/eval/baseline.json`).
 
 **Retrieval — in-corpus (N=25):**
 
 | Metric | Value | Note |
 |---|---|---|
 | Hit-rate@5 | **0.88** | Relevant source in top-5 for 88% of queries |
-| nDCG@5 (graded) | **0.729** | "GOOD" band; primary retrieval signal |
+| nDCG@5 (graded) | **0.723** | "GOOD" band; primary retrieval signal |
 | MRR | **0.679** | First relevant hit lands high on average |
 | Recall@5 | **0.64** | Fraction of all expected source specs surfaced |
 | Avg context precision (heuristic) | **0.44** | Strict source-filename match; supplementary |
@@ -384,7 +384,7 @@ All numbers below come directly from `data/eval_results.json`, dated 2026-06-24.
 
 ## 7. Interpretation and next steps
 
-The 2026-06-24 full-index baseline gives an honest picture of a working retrieval system:
+The 2026-06-25 full-index baseline gives an honest picture of a working retrieval system:
 
 - **Strong on single-fact lookup:** hit-rate@5 0.88 and MRR 0.679 mean that when a query maps to one definitional spec, the right chunk is usually retrieved and ranked high.
 - **Weaker on multi-evidence:** Recall@5 0.64 reflects queries that expect two specs but get one (e.g. gNB → 38.300 + 38.401). This is the clearest place to improve.
