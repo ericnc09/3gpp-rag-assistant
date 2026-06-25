@@ -19,7 +19,7 @@ The GIF should convey three things in order:
 **Query 1 (architecture — high visual impact):**
 > "Describe the F1 interface between gNB-CU and gNB-DU"
 
-Expected: answer references TS 38.401 and TS 38.470/38.473. Source cards show spec numbers and generation badges. This is the clearest query in the current eval set (avg cosine similarity 0.679 — the highest of any test case).
+Expected: answer references TS 38.401 and TS 38.470/38.473. Source cards show spec numbers and generation badges. F1 is a multi-spec architecture question — a good showcase for retrieval that spans more than one specification.
 
 **Query 2 (optional — shows cross-domain breadth if time allows):**
 > "What is the role of the AMF in the 5G Core?"
