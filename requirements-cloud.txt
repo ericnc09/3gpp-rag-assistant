@@ -1,7 +1,7 @@
 # Lightweight requirements for Streamlit Cloud deployment
 # No torch, no sentence-transformers — uses ChromaDB's built-in ONNX embeddings
 
-streamlit>=1.30.0
+streamlit>=1.46.0
 chromadb>=0.5.0
 groq>=0.4.0
 requests>=2.31.0
