@@ -31,6 +31,7 @@ from pathlib import Path
 # Add repo root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from src.core.corpus_config import DEFAULT_CORPUS
 from src.core.document_processor import DocumentProcessor
 from src.core.embeddings import LocalEmbeddingGenerator
 from src.core.vector_store import VectorStore
@@ -120,15 +121,24 @@ def find_spec_files(
 
 
 def enrich_chunks(chunks: list, file_path: Path) -> list:
-    """Add catalog metadata to every chunk from a given file."""
-    entry = infer_spec_from_filename(file_path.name)
+    """Add catalog metadata to every chunk from a given file.
+
+    Catalog data is sourced from DEFAULT_CORPUS (the 3GPP CorpusConfig), which
+    wraps spec_catalog.CATALOG.  This is the production call site where the
+    corpus-specific catalog plugs into the indexing pipeline — swap DEFAULT_CORPUS
+    for a different CorpusConfig and the enrichment picks up that corpus's fields.
+    """
+    inferred = infer_spec_from_filename(file_path.name)
+    # Route through DEFAULT_CORPUS so the config object is the live source of
+    # catalog truth, not a direct reference to spec_catalog.CATALOG.
+    corpus_entry = DEFAULT_CORPUS.get_entry(inferred["spec_number"]) if inferred else None
     for chunk in chunks:
         meta = chunk.setdefault("metadata", {})
-        if entry:
-            meta["domain"]      = entry["domain"]
-            meta["generation"]  = entry["generation"]
-            meta["spec_number"] = entry["spec_number"]
-            meta["spec_title"]  = entry["title"]
+        if corpus_entry:
+            meta["domain"]      = corpus_entry["domain"]
+            meta["generation"]  = corpus_entry["generation"]
+            meta["spec_number"] = corpus_entry["spec_number"]
+            meta["spec_title"]  = corpus_entry["title"]
         else:
             meta.setdefault("domain",      "unknown")
             meta.setdefault("generation",  "unknown")
@@ -173,6 +183,11 @@ def main() -> None:
     print(f"\n{'='*60}")
     print("3GPP RAG Assistant — Index Builder")
     print(f"{'='*60}\n")
+    # DEFAULT_CORPUS is the CorpusConfig for 3GPP — the seam where corpus-specific
+    # catalog and cleaning config enter the pipeline.  See corpus_config.py.
+    print(f"Corpus : {DEFAULT_CORPUS.summary()}")
+    print(f"Filters: {DEFAULT_CORPUS.filter_dimensions}")
+    print()
     print(catalog_summary())
     print()
 

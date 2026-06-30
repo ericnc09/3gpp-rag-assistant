@@ -9,6 +9,18 @@ Domains:  RAN  — Radio Access Network
 
 Generations: 5G  — 5G NR / NG-RAN / 5GC
              LTE — LTE / E-UTRAN / EPC
+
+Corpus-config seam
+------------------
+This file is the source of truth for the 3GPP catalog data.
+``src/core/corpus_config.py`` wraps it in a ``CorpusConfig`` and exposes the
+corpus-agnostic interface used by the rest of the pipeline.  To access the
+full config (text cleaner, filter dimensions, factory) import from there:
+
+    from src.core.corpus_config import build_3gpp_corpus_config, DEFAULT_CORPUS
+
+Nothing in this file changes when a new corpus is added; a new corpus simply
+creates its own CorpusConfig without touching the 3GPP data here.
 """
 from typing import List, Optional, TypedDict
 

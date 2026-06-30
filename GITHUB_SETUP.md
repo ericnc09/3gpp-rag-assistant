@@ -143,7 +143,8 @@ After pushing to GitHub, verify:
    source venv/bin/activate
    pip install -r requirements.txt
    cp .env.example .env
-   # Add your OPENAI_API_KEY
+   # Cloud mode: set GROQ_API_KEY (free at https://console.groq.com/keys)
+   # Local mode: set LLM_PROVIDER=ollama — no API key needed
    ```
 
 2. **Start coding:**

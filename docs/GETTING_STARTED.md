@@ -45,7 +45,7 @@ pip install -r requirements.txt
 # Copy the example environment file
 cp .env.example .env
 
-# Edit .env and add your OpenAI API key
+# Edit .env and add your Groq API key (cloud mode) or leave blank for Ollama local mode
 # You can use any text editor, for example:
 nano .env
 ```
@@ -69,7 +69,7 @@ Place the downloaded PDFs in `data/raw/`
 ### 6. Process Documents
 
 ```bash
-python src/core/document_processor.py
+python scripts/build_index.py
 ```
 
 This will:
@@ -118,9 +118,10 @@ curl -X POST "http://localhost:8000/query" \
 **Issue: `ModuleNotFoundError`**
 - Solution: Make sure your virtual environment is activated
 
-**Issue: `OpenAI API Error`**
-- Solution: Verify your API key is correct in `.env`
-- Check you have credits in your OpenAI account
+**Issue: `Groq API Error`** (cloud mode)
+- Solution: Verify `GROQ_API_KEY` is set correctly in `.env`
+- Get a free key at https://console.groq.com/keys
+- To avoid API keys entirely, switch to Ollama local mode (set `LLM_PROVIDER=ollama` in `.env` and install Ollama from https://ollama.com)
 
 **Issue: `No documents found`**
 - Solution: Ensure PDFs are in `data/raw/` and run the document processor

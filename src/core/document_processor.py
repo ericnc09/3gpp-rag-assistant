@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import List, Dict
 import logging
 
-from src.core.document_processor_UNIFIED import UnifiedDocumentProcessor, DocumentChunk
+from src.core.document_processor_impl import UnifiedDocumentProcessor, DocumentChunk
 
 logger = logging.getLogger(__name__)
 

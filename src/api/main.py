@@ -182,7 +182,7 @@ app = FastAPI(
     title="3GPP RAG Assistant",
     description=(
         "AI-powered question answering over 3GPP technical specifications. "
-        "Fully local — no API keys required."
+        "Runs locally with Ollama or in the cloud with Groq."
     ),
     version="1.0.0",
     lifespan=lifespan,
