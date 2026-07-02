@@ -44,7 +44,7 @@ Include:
 ## Security architecture overview
 
 The threat model, controls, and residual risks are documented in
-[`docs/portfolio-upgrade/THREAT_MODEL.md`](docs/portfolio-upgrade/THREAT_MODEL.md).
+[`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
 
 Key controls in brief:
 - Per-IP rate limiting with LRU-bounded store (20 req/min; max 10,000 tracked IPs)

@@ -1,9 +1,9 @@
-# 3GPP RAG Assistant
+# Telecom Standards AI Assistant
 
-A production RAG system over 37 3GPP technical specifications — 43,121 chunks, dual-deploy (local Ollama or cloud Groq), citation-grounded answers for engineers who spend hours lost in 1,000-page regulated specs.
+A production RAG system — the **3GPP RAG Assistant** — over 37 3GPP technical specifications: 43,121 chunks, dual-deploy (local Ollama or cloud Groq), citation-grounded answers for engineers who spend hours lost in 1,000-page regulated specs.
 
-**Live demo:** [3gpp-rag-assistant.streamlit.app](https://3gpp-rag-assistant.streamlit.app/) — animated walkthrough coming soon (see [docs/portfolio-upgrade/assets/DEMO_CAPTURE.md](docs/portfolio-upgrade/assets/DEMO_CAPTURE.md))
-<!-- demo GIF — drop the recording at docs/portfolio-upgrade/assets/demo.gif and replace the line above with: ![Demo](docs/portfolio-upgrade/assets/demo.gif) -->
+**Live demo:** [3gpp-rag-assistant.streamlit.app](https://3gpp-rag-assistant.streamlit.app/) — animated walkthrough coming soon (see [docs/assets/DEMO_CAPTURE.md](docs/assets/DEMO_CAPTURE.md))
+<!-- demo GIF — drop the recording at docs/assets/demo.gif and replace the line above with: ![Demo](docs/assets/demo.gif) -->
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -41,16 +41,16 @@ This system closes that gap. An engineer types a question in plain English; the 
 
 **Who uses it:** telecom engineers, standards researchers, and engineers onboarding to 5G. A few colleagues at Rogers began using the public deploy voluntarily — it is a personal side project, not a Rogers program.
 
-**What it demonstrates (for a hiring manager):** production RAG on a dense, regulated corpus — dual-deploy architecture, an eval harness with reproducible metrics, security controls verified by a personal audit, and a corpus-agnostic design that generalizes beyond 3GPP.
+**Beyond the tool itself,** this repository documents production RAG practice on a dense, regulated corpus — dual-deploy architecture, an eval harness with reproducible metrics, security controls mapped to a threat model, and a corpus-agnostic design built to generalize beyond 3GPP.
 
 ---
 
 ## Evaluation
 
-> Eval report with full methodology: [`docs/portfolio-upgrade/EVAL_REPORT.md`](docs/portfolio-upgrade/EVAL_REPORT.md)
+> Eval report with full methodology: [`docs/EVAL_REPORT.md`](docs/EVAL_REPORT.md)
 > Reproduce: `python scripts/eval_retrieval.py --output data/eval_results.json`
 
-Current results from `data/eval_results.json` (run 2026-06-25, full index of 43,121 chunks, 30-query golden set, top-k=5). The golden set splits into 25 answerable (in-corpus) queries and 5 deliberately out-of-corpus probes; retrieval metrics are reported over the 25, the refusal axis over the 5.
+Current results from `data/eval_results.json` (run 2026-07-02 with `--full --judge`, full index of 43,121 chunks, 30-query golden set, top-k=5; retrieval metrics identical to the committed 2026-06-25 baseline). The golden set splits into 25 answerable (in-corpus) queries and 5 deliberately out-of-corpus probes; retrieval metrics are reported over the 25, the refusal axis over the 5.
 
 **Retrieval quality — in-corpus (N=25), standard IR metrics:**
 
@@ -65,18 +65,20 @@ Current results from `data/eval_results.json` (run 2026-06-25, full index of 43,
 | Legacy pass rate | 18/25 (72%) | keyword recall ≥0.5 AND avg sim ≥0.50 |
 | Retrieve latency p50 / p95 | 0.021s / 0.048s | Apple M2 CPU, local ChromaDB |
 
-**Refusal axis — out-of-corpus probes (N=5):** 4/5 (80%) correctly stay below the relevance threshold (no confident match surfaced); avg out-of-corpus similarity 0.331 vs 0.557 in-corpus. The LLM-judged refusal rate (did the *generated answer* actually decline?) needs `--full` + a live model and is marked `[RUN REQUIRED]`.
+**Refusal axis — out-of-corpus probes (N=5):** 4/5 (80%) correctly stay below the relevance threshold (no confident match surfaced); avg out-of-corpus similarity 0.331 vs 0.557 in-corpus. At the answer layer, all 5/5 generated answers explicitly decline (2026-07-02 run, verifiable in the artifact's `answer_preview` fields) — though the automated refusal detector missed all five, a named harness defect tracked for Phase 2.
+
+**LLM-judge — answer quality (2026-07-02, N=30):** faithfulness **0.68**, answer correctness **0.40** — local Ollama `llama3.2` answers judged independently by Groq `llama-3.3-70b-versatile`. The judge's most common note is "correct but lacks specific details": the small local responder grounds its answers but runs thin on depth. These scores evaluate the local path; judging the cloud path (70B responder) is a named follow-up.
 
 **Reading the gap between 88% hit-rate and 72% legacy pass.** Of the 7 in-corpus queries that miss the legacy pass bar, 4 (gNB, HARQ, X2, SDAP) actually retrieve the correct source (nDCG 1.0) and miss only because bge-small's cosine similarity runs just under the 0.50 threshold. Only 3 are genuine retrieval misses — E1 interface, SA-vs-NSA, NR-vs-LTE physical layer — all comparison/interface queries where the question phrasing diverges from spec terminology. That cluster, plus the strict similarity threshold, are the concrete next targets (see [roadmap](#roadmap)).
 
-**Heuristic vs IR-standard.** Context precision/recall are keyword-based heuristics (RAGAS-inspired), kept as supplementary signals. Hit-rate/Recall@k/MRR/nDCG are the standard IR metrics. **Still `[RUN REQUIRED]`:** LLM-judge faithfulness/answer-correctness and the LLM-judged refusal rate — these need `--full` + a live model and are not fabricated here.
+**Heuristic vs IR-standard.** Context precision/recall are keyword-based heuristics (RAGAS-inspired), kept as supplementary signals. Hit-rate/Recall@k/MRR/nDCG are the standard IR metrics; LLM-judge faithfulness and answer-correctness are now measured (see above and [`docs/EVAL_REPORT.md`](docs/EVAL_REPORT.md) §6.3). **Still open:** judging the cloud answer path, and two harness fixes the 2026-07-02 run surfaced — both tracked in [`docs/PHASE2.md`](docs/PHASE2.md).
 
 ---
 
 ## Security and regulated-domain readiness
 
 > Disclosure policy and reporting: [`SECURITY.md`](SECURITY.md)
-> Threat model with code-level control mapping: [`docs/portfolio-upgrade/THREAT_MODEL.md`](docs/portfolio-upgrade/THREAT_MODEL.md)
+> Threat model with code-level control mapping: [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md)
 
 The live deploy is public-facing. The following controls are in the codebase — the threat model links each to its file and line:
 
@@ -140,7 +142,7 @@ The system has two deploy modes that share the same retrieval stack but differ i
    └──────────────────────────────────────────────────────┘
 ```
 
-**Key decisions** (full ADR log: [`docs/portfolio-upgrade/DECISIONS.md`](docs/portfolio-upgrade/DECISIONS.md)):
+**Key decisions** (full ADR log: [`docs/DECISIONS.md`](docs/DECISIONS.md)):
 
 - **RAG over fine-tuning.** 3GPP specs update every release cycle; RAG re-indexes without retraining. Citations are non-negotiable for standards work.
 - **bge-small-en-v1.5.** Best accuracy-to-size ratio on technical/scientific text (MTEB). 130MB, 384-dim, runs on CPU.
@@ -152,7 +154,7 @@ The system has two deploy modes that share the same retrieval stack but differ i
 
 ## Generalize to your corpus
 
-> Full guide: [`docs/portfolio-upgrade/GENERALIZE.md`](docs/portfolio-upgrade/GENERALIZE.md)
+> Full guide: [`docs/GENERALIZE.md`](docs/GENERALIZE.md)
 
 3GPP is the reference corpus; the architecture is not 3GPP-specific. The retrieval stack (document processor, ChromaDB, filtered retrieval, RAG chain) works on any technical or regulated document set. 3GPP-specific logic is contained in `src/core/spec_catalog.py` (the spec registry) and the 3GPP-aware text cleaner in `document_processor.py`.
 
@@ -303,16 +305,15 @@ TOP_K_RESULTS=5
 │   └── eval_results.json       # Latest retrieval eval output
 ├── docs/
 │   ├── GETTING_STARTED.md
-│   ├── portfolio-upgrade/
-│   │   ├── PLAN.md
-│   │   ├── EVAL_REPORT.md      # Eval methodology + results (Stream B)
-│   │   ├── THREAT_MODEL.md     # STRIDE threat model with file:line control map (Stream C)
-│   │   ├── DECISIONS.md        # Architecture decision log (Stream E)
-│   │   ├── METRICS.md          # Product + eval metrics (Stream E)
-│   │   ├── ROADMAP.md          # Canonical product roadmap (Stream E)
-│   │   ├── GENERALIZE.md       # How to use this with a non-3GPP corpus (Stream D)
-│   │   └── assets/
-│   │       └── demo.gif        # Demo recording (see capture instructions in assets/)
+│   ├── EVAL_REPORT.md          # Eval methodology + results
+│   ├── THREAT_MODEL.md         # STRIDE threat model with file:line control map
+│   ├── DECISIONS.md            # Architecture decision log (ADRs)
+│   ├── METRICS.md              # Product + eval metrics
+│   ├── ROADMAP.md              # Canonical product roadmap
+│   ├── PHASE2.md               # Phase 2 plan — retrieval v2, release intelligence, second corpus
+│   ├── GENERALIZE.md           # How to use this with a non-3GPP corpus
+│   ├── assets/
+│   │   └── DEMO_CAPTURE.md     # Demo GIF script (recording pending)
 │   ├── demo_qa.md
 │   └── demo_slide.md
 ├── requirements.txt            # Full local deps (Ollama path)
@@ -351,44 +352,21 @@ CI runs on Python 3.9, 3.10, 3.11 (GitHub Actions). Checks: flake8, black, pytes
 
 ## Roadmap
 
-<!-- Stream E: canonical roadmap in docs/portfolio-upgrade/ROADMAP.md; reconcile if divergent -->
+Milestones are defined by outcome and success criteria, not sprint dates. Full milestone details: [`docs/ROADMAP.md`](docs/ROADMAP.md) · Phase 2 plan: [`docs/PHASE2.md`](docs/PHASE2.md)
 
-The phases below track outcome-oriented milestones, not calendar sprints.
-
-```
-M1: Working RAG pipeline         ████████████████  SHIPPED
-M2: REST API + Streamlit UI      ████████████████  SHIPPED
-M3: Eval harness + Docker        ████████████████  SHIPPED
-M4: Multi-spec + domain filter   ████████████████  SHIPPED
-M5: Full 37-spec coverage        ████████████████  SHIPPED
-M6: Eval rigor + security docs   ████████████░░░░  IN PROGRESS
-M7: Multi-document reasoning     ░░░░░░░░░░░░░░░░  PLANNED
-M8: Hosted team version          ░░░░░░░░░░░░░░░░  PLANNED
-```
-
-**M1 — Working RAG pipeline (shipped)**
-Unified PDF/DOCX/DOC ingestion, sentence-boundary chunking (1000 chars / 200 overlap), local bge-small embeddings, ChromaDB persistence, Ollama LLM client, multi-turn RAG chain with conversation memory. Decision: RAG over fine-tuning — 3GPP specs update every release cycle; re-indexing is instant, retraining is not.
-
-**M2 — REST API + Streamlit UI (shipped)**
-FastAPI with per-session history, SSE streaming, OpenAPI docs. Streamlit chat UI with domain/generation filter panel. Decision: streaming-first design — token-by-token output matters more than raw throughput for interactive use.
-
-**M3 — Eval harness + Docker deployment (shipped)**
-RAGAS-inspired eval (`scripts/eval_retrieval.py`): standard IR metrics (hit-rate@k, Recall@k, MRR, nDCG@k) plus heuristic context precision/recall, cosine similarity, latency p50/p95, and a regression gate. Docker + docker-compose for reproducible local deploy. Multi-stage Dockerfile (non-root user, HEALTHCHECK). Full-index eval (43,121 chunks, 25 in-corpus queries): hit-rate@5 0.88, nDCG@5 0.723, MRR 0.679.
-
-**M4 — Multi-spec domain filtering (shipped)**
-37-spec catalog across 5G NR RAN, LTE RAN, 5G Core, LTE Core. Metadata-tagged chunks (domain, generation, spec_number). Pre-retrieval ChromaDB `where` filters. Decision: metadata filtering over post-retrieval scoring — filtering before retrieval scales better and is more predictable.
-
-**M5 — Full 37-spec coverage (shipped)**
-All 37 specs downloaded and indexed (43,121 chunks in the local/API index; the hosted Streamlit demo loads a 41,429-chunk subset sized for free-tier deployment). CPU-only index builder to avoid Apple MPS stalls on large files. macOS `textutil` as first-choice `.doc` extractor. Fixed ID collision bug in multi-file indexing.
-
-**M6 — Eval rigor + security documentation (shipped)**
-Eval harness now reports Recall@k, MRR, nDCG, hit-rate over a versioned 30-query golden dataset (`data/eval/golden_set.jsonl`, 25 in-corpus + 5 out-of-corpus refusal probes), with a committed regression baseline and CI gate. LLM-judge faithfulness/answer-correctness is coded and `[RUN REQUIRED]`. Added `SECURITY.md` + a STRIDE-style threat model, and made the corpus-agnostic seam explicit in code (`scripts/build_index.py` consumes `DEFAULT_CORPUS`).
-
-**M7 — Multi-document reasoning (planned)**
-Answers that explicitly synthesize across spec boundaries (e.g. TS 38.300 + 38.401 + 23.501). Success metric: eval cases requiring cross-spec synthesis pass at the same rate as single-spec cases.
-
-**M8 — Hosted team version (planned)**
-Auth layer, shared session management, team-scoped history. Decision pending: evaluate managed auth (Clerk, Auth0) vs. custom session tokens.
+| Milestone | Status | Success criteria |
+|---|---|---|
+| M1: Working RAG over a single spec | Complete | End-to-end pipeline; cited answers; multi-turn UI |
+| M2: Multi-spec coverage (37 specs, domain/generation filtering) | Complete | 43,121 chunks indexed; metadata filtering in UI + API |
+| M3: Public deploy, dual LLM path, security hardening | Complete | Live Streamlit Cloud app; audited vulnerabilities resolved |
+| M4: Eval rigor (Recall@k, MRR, nDCG, LLM-judge) | Complete | Reproducible one-command harness; golden dataset; regression gate; LLM-judge run published |
+| M5: Corpus-agnostic architecture | Complete | Documented seam in code; GENERALIZE.md; full suite green |
+| M6: Multi-document reasoning across spec boundaries | Planned | Cross-spec golden-set pass rate ≥ single-spec baseline |
+| M7: Hosted team version with auth + shared sessions | Planned | Auth, per-user history, distributed rate limiting |
+| M8: Eval-gated CI | Planned | A regression in retrieval quality fails CI automatically |
+| M9: Retrieval quality v2 — Phase 2, Track B | Planned | Recall@5 from 0.64 to ≥ 0.80 in-corpus; named miss cluster passes; no single-spec regression |
+| M10: Release intelligence — Phase 2, Track C | Planned | Version-aware index; release-delta answers citing Change Requests |
+| M11: Second corpus validated — Phase 2, Track D | Planned | NIST SP 800-53 indexed and queryable through CorpusConfig |
 
 ---
 
@@ -423,7 +401,7 @@ open http://localhost:8501
 2. Create a feature branch.
 3. Add unit tests for new logic (mock external dependencies).
 4. Run `black .` and `flake8` before opening a PR.
-5. For changes that affect the architecture or eval methodology, update the relevant doc in `docs/portfolio-upgrade/`.
+5. For changes that affect the architecture or eval methodology, update the relevant doc in `docs/`.
 
 ---
 

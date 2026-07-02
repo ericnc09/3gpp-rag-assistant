@@ -231,5 +231,5 @@ The default corpus config used when nothing else is specified.
 To use a different corpus, construct a ``CorpusConfig`` and pass it
 explicitly — do not mutate this module-level object.
 
-See ``docs/portfolio-upgrade/GENERALIZE.md`` for how to add a new corpus.
+See ``docs/GENERALIZE.md`` for how to add a new corpus.
 """

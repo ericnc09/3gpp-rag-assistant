@@ -1,10 +1,10 @@
 {
-  "evaluated_at": "2026-06-25T02:22:20.534139Z",
+  "evaluated_at": "2026-07-02T20:31:57.282078Z",
   "config": {
     "top_k": 5,
-    "full_eval": false,
-    "judge_eval": false,
-    "judge_provider": null,
+    "full_eval": true,
+    "judge_eval": true,
+    "judge_provider": "groq",
     "total_chunks": 43121,
     "dataset": "golden set (data/eval/golden_set.jsonl, 30 cases)"
   },
@@ -29,13 +29,33 @@
       "avg_ooc_similarity": 0.331,
       "llm_judged_refusal_rate": "[RUN REQUIRED]"
     },
-    "answer": {},
-    "llm_judge": {},
+    "answer": {
+      "pass_rate": 0.96,
+      "avg_answer_relevance": 0.0,
+      "avg_faithfulness": 0.834,
+      "avg_score": 0.534
+    },
+    "llm_judge": {
+      "judged_cases": 30,
+      "avg_faithfulness": 0.68,
+      "avg_answer_correct": 0.4,
+      "judge_model": "llama-3.3-70b-versatile"
+    },
     "latency": {
       "retrieve": {
-        "p50": 0.0217,
-        "p95": 0.0484,
-        "mean": 0.0437
+        "p50": 0.0222,
+        "p95": 0.0556,
+        "mean": 0.0563
+      },
+      "generate": {
+        "p50": 44.2715,
+        "p95": 69.7638,
+        "mean": 47.3914
+      },
+      "total": {
+        "p50": 44.3161,
+        "p95": 69.7828,
+        "mean": 47.4476
       }
     }
   },
@@ -57,7 +77,24 @@
       "min_similarity": 0.5,
       "top_source": "38401.docx",
       "num_results": 5,
-      "retrieve_time": 0.4521
+      "retrieve_time": 0.7792,
+      "answer_relevance": 0.0,
+      "faithfulness": 0.975,
+      "answer_score": 0.59,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "According to the provided context excerpts, a gNB (gigahertz Narrowband) refers to:  * A logical node hosting RLC, MAC and PHY layers of the gNB or en-gNB, as defined in TS 38.300 [2]. * A type of net",
+      "generate_time": 21.8106,
+      "llm_judge": {
+        "faithfulness": 0.0,
+        "answer_correctness": 0.0,
+        "faithfulness_raw": 0,
+        "answer_correctness_raw": 0,
+        "notes": "The answer provides incorrect and unsupported claims about gNB, contradicting the context.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-002",
@@ -76,7 +113,24 @@
       "min_similarity": 0.5,
       "top_source": "38473.docx",
       "num_results": 5,
-      "retrieve_time": 0.0465
+      "retrieve_time": 0.0556,
+      "answer_relevance": 0.0,
+      "faithfulness": 0.825,
+      "answer_score": 0.53,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "The F1 interface is defined as a logical interface between the gNB-CU (gigahertz Narrowband eNodeB Control Unit) and the gNB-DU (gigahertz Narrowband eNodeB Data Unit).   According to TS 38.401 [1], t",
+      "generate_time": 23.1602,
+      "llm_judge": {
+        "faithfulness": 0.2,
+        "answer_correctness": 0.2,
+        "faithfulness_raw": 1,
+        "answer_correctness_raw": 1,
+        "notes": "The answer provides some general information about the F1 interface but does not accurately describe its specifics as per the context.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-003",
@@ -95,7 +149,24 @@
       "min_similarity": 0.5,
       "top_source": "38413.docx",
       "num_results": 5,
-      "retrieve_time": 0.0454
+      "retrieve_time": 0.0509,
+      "answer_relevance": 0.0,
+      "faithfulness": 0.417,
+      "answer_score": 0.367,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": false,
+      "answer_preview": "The provided context excerpts do not mention the E1 interface at all.  The E1 interface is actually an IETF-defined interface used in 2G/3G networks for signaling and control plane communication betwe",
+      "generate_time": 15.2783,
+      "llm_judge": {
+        "faithfulness": 1.0,
+        "answer_correctness": 0.0,
+        "faithfulness_raw": 5,
+        "answer_correctness_raw": 0,
+        "notes": "The answer does not address the question based on the provided context.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-004",
@@ -114,7 +185,24 @@
       "min_similarity": 0.5,
       "top_source": "38410.docx",
       "num_results": 5,
-      "retrieve_time": 0.0424
+      "retrieve_time": 0.0487,
+      "answer_relevance": 0.0,
+      "faithfulness": 1.0,
+      "answer_score": 0.6,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "According to TS 38.410 [1], the NG-RAN logical nodes and their functions are as follows:  * gNB-CU (gigahertz Narrowband eNodeB Control Unit): This node is responsible for controlling the radio access",
+      "generate_time": 21.6797,
+      "llm_judge": {
+        "faithfulness": 0.0,
+        "answer_correctness": 0.0,
+        "faithfulness_raw": 0,
+        "answer_correctness_raw": 0,
+        "notes": "The answer introduces information not present in the provided context.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-005",
@@ -133,7 +221,24 @@
       "min_similarity": 0.5,
       "top_source": "38331.docx",
       "num_results": 5,
-      "retrieve_time": 0.0537
+      "retrieve_time": 0.0465,
+      "answer_relevance": 0.0,
+      "faithfulness": 1.0,
+      "answer_score": 0.6,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "Handover in 5G NR is initiated by the RAN using another RAT (e.g., E-UTRA) sending the RRCReconfiguration message via the radio access technology from which the inter-RAT handover is performed.  Accor",
+      "generate_time": 25.2984,
+      "llm_judge": {
+        "faithfulness": 0.2,
+        "answer_correctness": 0.2,
+        "faithfulness_raw": 1,
+        "answer_correctness_raw": 1,
+        "notes": "The answer provides incomplete and partially incorrect information about handover procedures in NR.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-006",
@@ -152,7 +257,24 @@
       "min_similarity": 0.5,
       "top_source": "38420.docx",
       "num_results": 5,
-      "retrieve_time": 0.0201
+      "retrieve_time": 0.0181,
+      "answer_relevance": 0.0,
+      "faithfulness": 0.833,
+      "answer_score": 0.533,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "The Xn interface is a point-to-point logical interface between two NG-RAN nodes, as defined in TS 38.420 [1]. The primary purpose of the Xn interface is to facilitate inter-connection of NG-RAN nodes ",
+      "generate_time": 34.3825,
+      "llm_judge": {
+        "faithfulness": 1.0,
+        "answer_correctness": 0.8,
+        "faithfulness_raw": 5,
+        "answer_correctness_raw": 4,
+        "notes": "The answer accurately reflects the context but lacks a detailed description of the Xn interface's purpose beyond facilitating inter-connection of NG-RAN nodes.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-007",
@@ -171,7 +293,24 @@
       "min_similarity": 0.5,
       "top_source": "23501.docx",
       "num_results": 5,
-      "retrieve_time": 0.0211
+      "retrieve_time": 0.0208,
+      "answer_relevance": 0.0,
+      "faithfulness": 0.825,
+      "answer_score": 0.53,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "The question of what is the difference between SA (Single-Mode) and NSA (Non-Standalone) 5G deployment options cannot be answered based on the provided context excerpts.  The context only provides inf",
+      "generate_time": 39.3004,
+      "llm_judge": {
+        "faithfulness": 1.0,
+        "answer_correctness": 0.0,
+        "faithfulness_raw": 5,
+        "answer_correctness_raw": 0,
+        "notes": "The answer states it cannot be determined from the context, which is correct given the provided information.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-008",
@@ -190,7 +329,24 @@
       "min_similarity": 0.5,
       "top_source": "38321.docx",
       "num_results": 5,
-      "retrieve_time": 0.0205
+      "retrieve_time": 0.0235,
+      "answer_relevance": 0.0,
+      "faithfulness": 0.75,
+      "answer_score": 0.5,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "The NR MAC (Medium Access Control) protocol is specified in TS 38.321 [1]. The main functions of the NR MAC protocol are:  * Random Access procedure: This procedure is used to initialize and manage ra",
+      "generate_time": 36.4452,
+      "llm_judge": {
+        "faithfulness": 0.2,
+        "answer_correctness": 0.2,
+        "faithfulness_raw": 1,
+        "answer_correctness_raw": 1,
+        "notes": "The answer provides some information about the NR MAC protocol but includes unsupported claims and lacks completeness.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-009",
@@ -209,7 +365,24 @@
       "min_similarity": 0.5,
       "top_source": "36331.docx",
       "num_results": 5,
-      "retrieve_time": 0.0473
+      "retrieve_time": 0.0509,
+      "answer_relevance": 0.0,
+      "faithfulness": 1.0,
+      "answer_score": 0.6,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "The RRC (Radio Resource Control) protocol is responsible for controlling and managing radio access networks, including 5G NR. According to TS 38.331 [1], the main functions of the RRC protocol in NR i",
+      "generate_time": 39.6756,
+      "llm_judge": {
+        "faithfulness": 0.6,
+        "answer_correctness": 0.6,
+        "faithfulness_raw": 3,
+        "answer_correctness_raw": 3,
+        "notes": "The answer is partially correct but lacks specific details about the RRC protocol's functions in NR as provided in the context.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-010",
@@ -228,7 +401,24 @@
       "min_similarity": 0.5,
       "top_source": "38300.docx",
       "num_results": 5,
-      "retrieve_time": 0.018
+      "retrieve_time": 0.0222,
+      "answer_relevance": 0.0,
+      "faithfulness": 1.0,
+      "answer_score": 0.6,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "QoS (Quality of Service) management in NG-RAN and 5GC involves a two-step mapping process:   1. Mapping IP-flows to QoS flows at the NAS level, characterized by a QoS profile provided by 5GC to NG-RAN",
+      "generate_time": 51.6387,
+      "llm_judge": {
+        "faithfulness": 1.0,
+        "answer_correctness": 0.6,
+        "faithfulness_raw": 5,
+        "answer_correctness_raw": 3,
+        "notes": "The answer is mostly correct but lacks details about the second step of mapping QoS flows to DRBs at the Access Stratum level.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-011",
@@ -247,7 +437,24 @@
       "min_similarity": 0.5,
       "top_source": "38300.docx",
       "num_results": 5,
-      "retrieve_time": 0.0405
+      "retrieve_time": 0.0526,
+      "answer_relevance": 0.0,
+      "faithfulness": 0.708,
+      "answer_score": 0.483,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "The 5G NR physical layer channel structure is defined in TS 38.214 [1]. The channel structure consists of several types of channels:  * Physical downlink shared channel (PDSCH): This channel carries t",
+      "generate_time": 56.5828,
+      "llm_judge": {
+        "faithfulness": 0.2,
+        "answer_correctness": 0.2,
+        "faithfulness_raw": 1,
+        "answer_correctness_raw": 1,
+        "notes": "The answer references a specific document but does not accurately reflect the context provided.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-012",
@@ -266,7 +473,24 @@
       "min_similarity": 0.5,
       "top_source": "38323.docx",
       "num_results": 5,
-      "retrieve_time": 0.0217
+      "retrieve_time": 0.0188,
+      "answer_relevance": 0.0,
+      "faithfulness": 1.0,
+      "answer_score": 0.6,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "The PDCP (Packet Data Convergence Protocol) is a protocol used in 5G NR to provide data transfer, header compression, and ciphering for user plane and control plane data.  According to TS 38.323 [1], ",
+      "generate_time": 44.9851,
+      "llm_judge": {
+        "faithfulness": 1.0,
+        "answer_correctness": 1.0,
+        "faithfulness_raw": 5,
+        "answer_correctness_raw": 5,
+        "notes": "The answer accurately and completely addresses the question based on the provided context.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-013",
@@ -285,7 +509,24 @@
       "min_similarity": 0.5,
       "top_source": "38410.docx",
       "num_results": 5,
-      "retrieve_time": 0.0227
+      "retrieve_time": 0.0176,
+      "answer_relevance": 0.0,
+      "faithfulness": 0.85,
+      "answer_score": 0.54,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "The NG interface between NG-RAN and 5GC is a logical interface that supports the exchange of signalling information between the two systems. According to TS 38.410 [1], the NG interface is open, point",
+      "generate_time": 34.7312,
+      "llm_judge": {
+        "faithfulness": 1.0,
+        "answer_correctness": 1.0,
+        "faithfulness_raw": 5,
+        "answer_correctness_raw": 5,
+        "notes": "The answer accurately reflects the context provided about the NG interface between NG-RAN and 5GC.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-014",
@@ -304,7 +545,24 @@
       "min_similarity": 0.5,
       "top_source": "38401.docx",
       "num_results": 5,
-      "retrieve_time": 0.0408
+      "retrieve_time": 0.0446,
+      "answer_relevance": 0.0,
+      "faithfulness": 1.0,
+      "answer_score": 0.6,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "According to TS 38.401 [1], the gNB-CU-CP (gNB Control Unit - Control Plane) and gNB-CU-UP (gNB Control Unit - User Plane) are two logical nodes within a gNB.  The gNB-CU-CP is responsible for hosting",
+      "generate_time": 44.2715,
+      "llm_judge": {
+        "faithfulness": 1.0,
+        "answer_correctness": 0.6,
+        "faithfulness_raw": 5,
+        "answer_correctness_raw": 3,
+        "notes": "The answer is mostly correct but lacks details on how gNB-CU-CP and gNB-CU-UP differ.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-015",
@@ -323,7 +581,24 @@
       "min_similarity": 0.5,
       "top_source": "38214.docx",
       "num_results": 5,
-      "retrieve_time": 0.0208
+      "retrieve_time": 0.0186,
+      "answer_relevance": 0.0,
+      "faithfulness": 0.575,
+      "answer_score": 0.43,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "Beamforming and beam management are two related but distinct concepts in 5G NR.  Beamforming refers to the process of shaping the radio signal in space to concentrate it on a specific area or user equ",
+      "generate_time": 46.0048,
+      "llm_judge": {
+        "faithfulness": 0.2,
+        "answer_correctness": 0.2,
+        "faithfulness_raw": 1,
+        "answer_correctness_raw": 1,
+        "notes": "The answer provides a general definition of beamforming and beam management but lacks specific details and support from the provided context.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-016",
@@ -342,7 +617,24 @@
       "min_similarity": 0.5,
       "top_source": "23501.docx",
       "num_results": 5,
-      "retrieve_time": 0.0209
+      "retrieve_time": 0.0221,
+      "answer_relevance": 0.0,
+      "faithfulness": 1.0,
+      "answer_score": 0.6,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "Dual connectivity in 5G NR refers to the ability of a User Equipment (UE) to be connected to two different RAN nodes, each providing radio resources for the UE's active radio bearers. This is achieved",
+      "generate_time": 42.9702,
+      "llm_judge": {
+        "faithfulness": 0.6,
+        "answer_correctness": 0.6,
+        "faithfulness_raw": 3,
+        "answer_correctness_raw": 3,
+        "notes": "The answer partially captures the concept of dual connectivity but lacks specific details from the context.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-017",
@@ -361,7 +653,24 @@
       "min_similarity": 0.5,
       "top_source": "38321.docx",
       "num_results": 5,
-      "retrieve_time": 0.0303
+      "retrieve_time": 0.0233,
+      "answer_relevance": 0.0,
+      "faithfulness": 0.7,
+      "answer_score": 0.48,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "HARQ (Hybrid Automatic Repeat Request) is a protocol used in 5G New Radio (NR) to improve the reliability of data transmission over wireless links.  According to TS 38.321 [1], HARQ is used to provide",
+      "generate_time": 78.8572,
+      "llm_judge": {
+        "faithfulness": 0.6,
+        "answer_correctness": 0.6,
+        "faithfulness_raw": 3,
+        "answer_correctness_raw": 3,
+        "notes": "The answer provides some correct information about HARQ in NR but lacks specific details from the context and introduces external information.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-018",
@@ -380,7 +689,24 @@
       "min_similarity": 0.5,
       "top_source": "36322.docx",
       "num_results": 5,
-      "retrieve_time": 0.0179
+      "retrieve_time": 0.0201,
+      "answer_relevance": 0.0,
+      "faithfulness": 0.575,
+      "answer_score": 0.43,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "According to TS 38.300 [1], the Radio Link Control (RLC) protocol in NR is used for reliable data transfer between the UE and the gNB.  The RLC protocol supports three transmission modes:  * Transpare",
+      "generate_time": 52.2378,
+      "llm_judge": {
+        "faithfulness": 1.0,
+        "answer_correctness": 1.0,
+        "faithfulness_raw": 5,
+        "answer_correctness_raw": 5,
+        "notes": "The answer accurately reflects the context provided in source 38300.docx regarding the RLC protocol and its three transmission modes.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-019",
@@ -399,7 +725,24 @@
       "min_similarity": 0.5,
       "top_source": "36300.docx",
       "num_results": 5,
-      "retrieve_time": 0.0172
+      "retrieve_time": 0.0208,
+      "answer_relevance": 0.0,
+      "faithfulness": 1.0,
+      "answer_score": 0.6,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "According to TS 38.321 [1], the Random Access Procedure (RAP) in NR involves two main steps: the transmission of a Random Access Preamble (RACH) on the uplink and the reception of a Random Access Resp",
+      "generate_time": 65.6257,
+      "llm_judge": {
+        "faithfulness": 0.6,
+        "answer_correctness": 0.6,
+        "faithfulness_raw": 3,
+        "answer_correctness_raw": 3,
+        "notes": "The answer partially addresses the question but lacks key details from the context about the RACH procedure.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-020",
@@ -418,7 +761,24 @@
       "min_similarity": 0.5,
       "top_source": "36423.docx",
       "num_results": 5,
-      "retrieve_time": 0.041
+      "retrieve_time": 0.058,
+      "answer_relevance": 0.0,
+      "faithfulness": 0.875,
+      "answer_score": 0.55,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "The LTE X2 interface is used to exchange signaling between eNBs (Evolved Node Bs) in E-UTRAN (Evolved Universal Terrestrial Radio Access Network). According to TS 36.423 [1], the X2 interface provides",
+      "generate_time": 61.8935,
+      "llm_judge": {
+        "faithfulness": 1.0,
+        "answer_correctness": 1.0,
+        "faithfulness_raw": 5,
+        "answer_correctness_raw": 5,
+        "notes": "The answer accurately reflects the context provided about the LTE X2 interface's purpose.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-021",
@@ -437,7 +797,24 @@
       "min_similarity": 0.5,
       "top_source": "36300.docx",
       "num_results": 5,
-      "retrieve_time": 0.0198
+      "retrieve_time": 0.0223,
+      "answer_relevance": 0.0,
+      "faithfulness": 0.625,
+      "answer_score": 0.45,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "According to TS 36.300 [1], the E-UTRAN (Evolved Universal Terrestrial Radio Access Network) architecture consists of eNBs (Evolved Node Bs), which provide the E-UTRA user plane (PDCP/RLC/MAC/PHY) and",
+      "generate_time": 69.2106,
+      "llm_judge": {
+        "faithfulness": 0.6,
+        "answer_correctness": 0.6,
+        "faithfulness_raw": 3,
+        "answer_correctness_raw": 3,
+        "notes": "The answer partially addresses the question but lacks specific details about E-UTRAN architecture from the context.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-022",
@@ -456,7 +833,24 @@
       "min_similarity": 0.5,
       "top_source": "38300.docx",
       "num_results": 5,
-      "retrieve_time": 0.0162
+      "retrieve_time": 0.0207,
+      "answer_relevance": 0.0,
+      "faithfulness": 1.0,
+      "answer_score": 0.6,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "According to TS 37.324 [1], Service Data Adaptation Protocol (SDAP) is a protocol used in 5G to adapt service data between different network domains.  TS 37.324 [1] states that SDAP provides mapping b",
+      "generate_time": 61.4297,
+      "llm_judge": {
+        "faithfulness": 0.6,
+        "answer_correctness": 0.6,
+        "faithfulness_raw": 3,
+        "answer_correctness_raw": 3,
+        "notes": "The answer partially addresses the question and provides some correct information but lacks completeness and contains unsupported claims.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-023",
@@ -475,7 +869,24 @@
       "min_similarity": 0.5,
       "top_source": "23501.docx",
       "num_results": 5,
-      "retrieve_time": 0.0397
+      "retrieve_time": 0.0442,
+      "answer_relevance": 0.0,
+      "faithfulness": 1.0,
+      "answer_score": 0.6,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "According to TS 23.501 [1], a Network Slice S-NSSAI (Network Slice Subset Network Slice Access Identity) is an identifier that uniquely identifies a subset of cells within a Tracking Area (TA) that su",
+      "generate_time": 61.6445,
+      "llm_judge": {
+        "faithfulness": 1.0,
+        "answer_correctness": 0.6,
+        "faithfulness_raw": 5,
+        "answer_correctness_raw": 3,
+        "notes": "The answer accurately defines Network Slice S-NSSAI but does not fully address how 5G network slicing works at the RAN level.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-024",
@@ -494,7 +905,24 @@
       "min_similarity": 0.5,
       "top_source": "36331.docx",
       "num_results": 5,
-      "retrieve_time": 0.0164
+      "retrieve_time": 0.019,
+      "answer_relevance": 0.0,
+      "faithfulness": 0.65,
+      "answer_score": 0.46,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "According to TS 38.331 [1], the SSB (Synchronization Signal Block) is a fundamental component of the NR (New Radio) system.  TS 38.331 [1], clause 5.3.2, defines the SSB as \"a set of SS/PBCH blocks th",
+      "generate_time": 69.7638,
+      "llm_judge": {
+        "faithfulness": 0.6,
+        "answer_correctness": 0.6,
+        "faithfulness_raw": 3,
+        "answer_correctness_raw": 3,
+        "notes": "The answer provides some relevant information but lacks specific details from the context about the SSB in NR.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "gs-025",
@@ -513,7 +941,24 @@
       "min_similarity": 0.5,
       "top_source": "38214.docx",
       "num_results": 5,
-      "retrieve_time": 0.0179
+      "retrieve_time": 0.0205,
+      "answer_relevance": 0.0,
+      "faithfulness": 0.675,
+      "answer_score": 0.47,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "According to TS 38.201 [1], the main differences between NR and LTE physical layers are:  * Modulation schemes: NR uses OFDM (Orthogonal Frequency Division Multiplexing) with different modulation sche",
+      "generate_time": 74.4404,
+      "llm_judge": {
+        "faithfulness": 0.2,
+        "answer_correctness": 0.2,
+        "faithfulness_raw": 1,
+        "answer_correctness_raw": 1,
+        "notes": "The answer provides some information about NR physical layer but lacks specific comparison with LTE and does not fully address the question based on the provided context.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "neg-001",
@@ -532,7 +977,24 @@
       "min_similarity": 0.5,
       "top_source": "38321.docx",
       "num_results": 5,
-      "retrieve_time": 0.0216
+      "retrieve_time": 0.0196,
+      "answer_relevance": 0.0,
+      "faithfulness": 0.55,
+      "answer_score": 0.42,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "I must point out that the user's question seems unrelated to the provided context excerpts, which appear to be technical specifications for 5G NR and LTE.  As I am only allowed to provide answers base",
+      "generate_time": 63.6403,
+      "llm_judge": {
+        "faithfulness": 1.0,
+        "answer_correctness": 0.0,
+        "faithfulness_raw": 5,
+        "answer_correctness_raw": 0,
+        "notes": "The answer does not address the question about the caloric content of a Big Mac as the context does not provide relevant information.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "neg-002",
@@ -551,7 +1013,24 @@
       "min_similarity": 0.5,
       "top_source": "36331.docx",
       "num_results": 5,
-      "retrieve_time": 0.0463
+      "retrieve_time": 0.0444,
+      "answer_relevance": 0.0,
+      "faithfulness": 0.55,
+      "answer_score": 0.42,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "I must point out that the user's question is unrelated to the provided context excerpts, which appear to be technical specifications for 5G NR and LTE.  The context excerpts do not provide any informa",
+      "generate_time": 68.5102,
+      "llm_judge": {
+        "faithfulness": 1.0,
+        "answer_correctness": 0.0,
+        "faithfulness_raw": 5,
+        "answer_correctness_raw": 0,
+        "notes": "The answer correctly states that the context does not provide information to address the question about configuring Kubernetes pod networking with Calico.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "neg-003",
@@ -570,7 +1049,24 @@
       "min_similarity": 0.5,
       "top_source": "29274.docx",
       "num_results": 5,
-      "retrieve_time": 0.0204
+      "retrieve_time": 0.0222,
+      "answer_relevance": 0.0,
+      "faithfulness": 0.575,
+      "answer_score": 0.43,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "I cannot provide an answer based on the provided context excerpts, as there is no mention of 3GPP TS 99.999 in the list of provided documents.  However, I can suggest that you check the official 3GPP ",
+      "generate_time": 41.7163,
+      "llm_judge": {
+        "faithfulness": 1.0,
+        "answer_correctness": 0.0,
+        "faithfulness_raw": 5,
+        "answer_correctness_raw": 0,
+        "notes": "The answer does not provide any information about 3GPP TS 99.999 as it is not mentioned in the context.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "neg-004",
@@ -589,7 +1085,24 @@
       "min_similarity": 0.5,
       "top_source": "36401.docx",
       "num_results": 5,
-      "retrieve_time": 0.0241
+      "retrieve_time": 0.0194,
+      "answer_relevance": 0.0,
+      "faithfulness": 0.625,
+      "answer_score": 0.45,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "I cannot provide real-time financial information or answer questions about specific companies' stock prices. However, I can tell you that 3GPP TS 36.401 is a technical specification for LTE (Long-Term",
+      "generate_time": 40.8002,
+      "llm_judge": {
+        "faithfulness": 1.0,
+        "answer_correctness": 0.0,
+        "faithfulness_raw": 5,
+        "answer_correctness_raw": 0,
+        "notes": "The answer does not address the question about Ericsson's stock price as the context does not provide this information.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     },
     {
       "id": "neg-005",
@@ -608,7 +1121,24 @@
       "min_similarity": 0.5,
       "top_source": "23402.docx",
       "num_results": 5,
-      "retrieve_time": 0.0484
+      "retrieve_time": 0.0428,
+      "answer_relevance": 0.0,
+      "faithfulness": 0.575,
+      "answer_score": 0.43,
+      "is_substantive": true,
+      "is_refusal": false,
+      "answer_pass": true,
+      "answer_preview": "I cannot provide an answer based on the provided context excerpts, as they do not mention configuring a Cisco IOS BGP peer for MPLS VPN.  However, I can suggest that you consult the official Cisco doc",
+      "generate_time": 33.7553,
+      "llm_judge": {
+        "faithfulness": 1.0,
+        "answer_correctness": 0.0,
+        "faithfulness_raw": 5,
+        "answer_correctness_raw": 0,
+        "notes": "The answer does not provide any information on configuring a Cisco IOS BGP peer for MPLS VPN as the context does not mention it.",
+        "judge_model": "llama-3.3-70b-versatile",
+        "parse_ok": true
+      }
     }
   ]
 }

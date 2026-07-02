@@ -1,18 +1,20 @@
 # Evaluation Report — 3GPP RAG Assistant
 
-**Last run (full index):** 2026-06-25 (see `data/eval_results.json`)
+**Last run (full + LLM-judge):** 2026-07-02 (`--full --judge --judge-provider groq`; see `data/eval_results.json`)
+**Retrieval baseline:** 2026-06-25 (committed in `data/eval/baseline.json`; the 2026-07-02 run reproduced every retrieval metric exactly)
 **Last run (sample fixture):** 2026-06-23 (see `data/eval/sample_results.json`)
 **Harness version:** v3 (graded nDCG; negative/refusal cases; in-corpus/refusal split; sample fixture; tightened relevance matching)
 **Index size:** 43,121 chunks (local/API index; the hosted Streamlit demo loads a 41,429-chunk subset sized for free-tier deployment)
 **Dataset:** 30-query golden set — 25 in-corpus + 5 out-of-corpus refusal probes
 **Reproduce (sample fixture, no index required):** `python scripts/eval/run_sample_eval.py`
-**Reproduce (full index):** `python scripts/eval_retrieval.py --output data/eval_results.json`
+**Reproduce (retrieval only):** `python scripts/eval_retrieval.py --output data/eval_results.json`
+**Reproduce (full + judge):** `python scripts/eval_retrieval.py --full --judge --judge-provider groq --output data/eval_results.json`
 
 ---
 
 ## Overview
 
-This document defines every metric in the eval harness, explains why it matters, states its limitations honestly, and cites the current real numbers from the 2026-06-25 full-index run (43,121 chunks, 30-query golden set). Standard IR metrics are reported over the 25 in-corpus queries; the refusal axis over the 5 out-of-corpus probes. Anything requiring a live LLM (the LLM-judge metrics) is marked **[RUN REQUIRED]** — those placeholders are the correct deliverable when the infrastructure is not available at report-generation time.
+This document defines every metric in the eval harness, explains why it matters, states its limitations honestly, and cites the current real numbers from the full-index runs (43,121 chunks, 30-query golden set): the 2026-06-25 retrieval baseline and the 2026-07-02 full + LLM-judge run. Standard IR metrics are reported over the 25 in-corpus queries; the refusal axis over the 5 out-of-corpus probes. Anything not yet measured is marked **[RUN REQUIRED]** — those placeholders are the correct deliverable when the infrastructure is not available at report-generation time.
 
 ---
 
@@ -67,7 +69,7 @@ These are the signals a skeptical enterprise-RAG PM or technical reviewer will l
 
 The gain at each rank is discounted: gain(rank) = gain / log2(rank + 1). The score is normalised to [0, 1] by dividing by the DCG of the ideal ranking.
 
-**Why it matters:** nDCG is the most complete single retrieval metric. It rewards the retriever for putting relevant chunks early (like MRR) while also crediting retrieval of multiple relevant chunks (unlike MRR). It's the metric used in TREC, MS-MARCO, and most enterprise RAG benchmark papers. A Layer 2 hiring manager reviewing this report will expect to see nDCG. The graded variant adds signal for queries where the retrieval system must distinguish primary from supporting evidence.
+**Why it matters:** nDCG is the most complete single retrieval metric. It rewards the retriever for putting relevant chunks early (like MRR) while also crediting retrieval of multiple relevant chunks (unlike MRR). It's the metric used in TREC, MS-MARCO, and most enterprise RAG benchmark papers. Reviewers of enterprise RAG systems expect to see nDCG. The graded variant adds signal for queries where the retrieval system must distinguish primary from supporting evidence.
 
 **Implementation note:** The ideal DCG is computed from the actual gains achievable in the full retrieved list (not just the number of distinct spec tokens). This correctly handles the case where multiple chunks from the same spec appear in the result set, preventing nDCG > 1.0.
 
@@ -141,13 +143,20 @@ Fraction of expected answer keywords present in the generated response. Same bri
 #### Faithfulness (heuristic)
 Proxy for grounding: scores (a) presence of grounding vocabulary ("according to", "3GPP", "specification") and (b) word-overlap between the answer and the top retrieved chunk. This is a surface heuristic — it can be fooled by an answer that copies terminology from the retrieved chunk without actually being grounded in it.
 
-**2026-06-25 result:** answer block is **empty** (`{}`) — the baseline run is retrieval-only (`--full` not passed; no live LLM). Result is **[RUN REQUIRED]**.
+**2026-07-02 results** (responder: local Ollama `llama3.2`, 30 answers):
+
+| Heuristic metric | Value | Note |
+|---|---|---|
+| Faithfulness (heuristic) | **0.834** | Above the 0.80 target |
+| Answer pass rate | **0.96** | Composite pass criterion |
+| Composite answer score | **0.534** | Below the 0.70 target — dragged down by the relevance gap below |
+| Answer relevance | **not computed** | Harness defect: the metric reads an `answer_keywords` field that the golden set does not define (only the legacy inline cases have it), so every case scored 0.0. Fix tracked in `PHASE2.md` Track B. |
 
 ---
 
 ### 2.2 LLM-judge metrics (faithfulness + answer-correctness)
 
-**Status: [RUN REQUIRED]** — Implementation is complete in `scripts/eval/judge.py`. Results require a live LLM.
+**Status: measured 2026-07-02.** Responder: local Ollama `llama3.2` (the local deploy path). Judge: Groq `llama-3.3-70b-versatile` — a different, much larger model than the responder, which gives the independent-judge setup this report recommends. Note the scores below evaluate the **local** answer path; the cloud path (Groq 70B as responder) has not been judged and is a named follow-up.
 
 **Activate with:**
 ```
@@ -160,9 +169,9 @@ python scripts/eval_retrieval.py --full --judge --judge-provider groq
 
 **Why it matters:** Hallucination in technical/regulated domains is a safety and compliance risk. For 3GPP specs used in network engineering, a hallucinated interface definition or protocol requirement could propagate errors into product decisions. LLM-judge faithfulness is the closest proxy for hallucination rate short of human review.
 
-**Limitation:** The judge model's own capabilities bound the score quality. Using the same model as the responder is a known bias risk (self-judging). Default judge: llama-3.3-70b-versatile (Groq), same as production — a different judge model would give a more independent signal. Judge prompts must be versioned; changing the prompt changes scores.
+**Limitation:** The judge model's own capabilities bound the score quality. Using the same model as the responder is a known bias risk (self-judging); the 2026-07-02 run avoided it by judging local llama3.2 answers with Groq llama-3.3-70b. Judge prompts must be versioned; changing the prompt changes scores.
 
-**Current value:** **[RUN REQUIRED]**
+**Current value (2026-07-02, N=30):** **0.68** average. Judge notes most often credit grounding but flag missing detail — consistent with a 2 GB responder model summarizing 1,000-char chunks.
 
 ---
 
@@ -171,9 +180,9 @@ python scripts/eval_retrieval.py --full --judge --judge-provider groq
 
 **Why it matters:** Answer relevance (keyword overlap) misses cases where an answer uses the right vocabulary but gives the wrong technical explanation. LLM-judge correctness catches substantive errors that keyword heuristics cannot.
 
-**Limitation:** Without ground-truth reference answers, "correctness" is the judge's interpretation, not a ground-truth oracle. Treat as a directional signal; calibrate by sampling and reviewing judge reasoning on a small set.
+**Limitation:** Without ground-truth reference answers, "correctness" is the judge's interpretation, not a ground-truth oracle. Treat as a directional signal; calibrate by sampling and reviewing judge reasoning on a small set. Note the average below includes the 5 out-of-corpus probes, which the judge scores 0 by design (a correct refusal "does not address the question").
 
-**Current value:** **[RUN REQUIRED]**
+**Current value (2026-07-02, N=30):** **0.40** average. Over the 25 in-corpus cases alone the picture is a small responder model that grounds its answers (faithfulness 0.68) but frequently lacks depth — the judge's most common note is "correct but lacks specific details." This is a responder-capability ceiling, not a retrieval failure, and it quantifies the quality gap between the 2 GB local model and the 70B cloud path.
 
 ---
 
@@ -218,13 +227,15 @@ Five cases (`neg-001` through `neg-005`) are explicitly out-of-corpus:
 - `neg-004`: Ericsson stock price (financial, not telecom standards)
 - `neg-005`: Cisco IOS BGP configuration (vendor-specific, adjacent domain)
 
-These test that the system declines rather than confabulating a 3GPP answer. The `refusal_rate` metric (in `scripts/eval/metrics.py`) measures what fraction of out-of-corpus queries the system correctly refuses. **[RUN REQUIRED]** for live numbers — requires the full index and a live LLM to generate answers for these queries, then `is_refusal()` to score them.
+These test that the system declines rather than confabulating a 3GPP answer. **Measured 2026-07-02:** all five generated answers open with an explicit decline (verifiable in the `answer_preview` fields of `data/eval_results.json`) — the answer layer behaves correctly on every probe. However, the automated `is_refusal()` phrase heuristic scored **0/5**: its phrase list does not match the refusal wording the model actually produces ("I must point out…", "I cannot provide an answer to your question about…"). The behavior passed; the detector failed. Fixing the heuristic (or replacing it with a judge-based refusal check) is tracked in `PHASE2.md` Track B.
 
 ### What was NOT done (remaining gaps)
 
 - No paraphrase variants per query
 - No human annotation of individual retrieved chunks (only source-level relevance)
-- Refusal-rate numbers not yet produced (require live inference on negative cases)
+- `answer_keywords` fields missing from the golden set, so heuristic answer-relevance cannot score it
+- `is_refusal()` phrase list too narrow for observed refusal wording; automated refusal-rate aggregation not yet wired into the summary
+- `--regression` overwrites `data/eval_results.json` as a side effect unless `--no-save` is passed (the CI gate passes `--no-save`; making the gate non-destructive by default is tracked in `PHASE2.md` Track B)
 
 These are the logical next steps for a v4 golden set.
 
@@ -381,6 +392,27 @@ All numbers below come directly from `data/eval_results.json`, dated 2026-06-25.
 
 ---
 
+### 6.3 Full + LLM-judge run (2026-07-02)
+
+Produced by `python scripts/eval_retrieval.py --full --judge --judge-provider groq`. Responder: local Ollama `llama3.2` (2 GB, CPU). Judge: Groq `llama-3.3-70b-versatile` (independent of the responder). **Every retrieval metric reproduced the 2026-06-25 baseline exactly** — hit-rate@5 0.88, nDCG@5 0.723, MRR 0.679, Recall@5 0.64 — confirming run-to-run determinism of the retrieval layer.
+
+| Metric | Value | Note |
+|---|---|---|
+| LLM-judge faithfulness (N=30) | **0.68** | Groq 70B judging llama3.2 answers; grounding credited, depth flagged |
+| LLM-judge answer correctness (N=30) | **0.40** | Includes the 5 refusal probes, judged 0 by design; most common in-corpus note: "correct but lacks specific details" |
+| Heuristic faithfulness | **0.834** | Above the 0.80 target |
+| Heuristic answer pass rate | **0.96** | — |
+| Composite answer score | **0.534** | Below 0.70 target; deflated by the `answer_keywords` harness gap (§2.1) |
+| Answer-layer refusal (manual, N=5) | **5/5** | All probe answers explicitly decline; automated `is_refusal()` detector scored 0/5 — detector defect, see §3 |
+| Generate latency p50 / p95 (llama3.2, CPU) | **44.3s / 69.8s** | Long RAG prompts on a CPU-only 2 GB model; the <5s end-to-end target is not met on the local path |
+| Retrieve latency p50 / p95 (this run) | **0.022s / 0.056s** | Consistent with the clean-run baseline (0.021s / 0.048s) despite concurrent CPU load from generation |
+
+**What these judge numbers evaluate:** the local deploy path. The public cloud app answers with Groq 70B, which was the judge here, not the responder — judging the cloud path with a distinct judge model is a named follow-up (`PHASE2.md` Track B).
+
+**Run-to-run variance:** answer generation runs at temperature 0.1, so regenerated answers differ slightly between runs; two consecutive full runs on 2026-07-02 produced judge faithfulness 0.647 → 0.68 and correctness 0.387 → 0.40 (the judge itself runs at temperature 0.0). Treat judge scores as directional with roughly ±0.03 noise; pinning generation temperature/seed for eval runs is part of the Track B harness fixes.
+
+---
+
 ## 7. Interpretation and next steps
 
 The 2026-06-25 full-index baseline gives an honest picture of a working retrieval system:
@@ -389,12 +421,14 @@ The 2026-06-25 full-index baseline gives an honest picture of a working retrieva
 - **Weaker on multi-evidence:** Recall@5 0.64 reflects queries that expect two specs but get one (e.g. gNB → 38.300 + 38.401). This is the clearest place to improve.
 - **The similarity threshold is mis-calibrated for bge-small:** four "failures" retrieved the correct document but scored below the 0.50 cosine cutoff. The pass criterion, not the retriever, is the problem for those.
 - **Comparison/interface queries are the genuine miss cluster:** E1, SA-vs-NSA, NR-vs-LTE PHY all fail because the question phrasing doesn't match spec vocabulary.
-- **Refusal behaviour is reasonable at the retrieval layer:** 4/5 out-of-corpus probes stay below threshold; the answer-layer refusal still needs an LLM run.
+- **Refusal behaviour is good at both layers:** 4/5 probes stay below the retrieval threshold, and 5/5 generated answers explicitly decline (2026-07-02 run) — though the automated refusal detector needs fixing before that number is machine-verified.
+- **The local answer path grounds but lacks depth:** judge faithfulness 0.68 vs correctness 0.40 quantifies the 2 GB responder's ceiling — grounded summaries, thin detail. The cloud path's 70B responder is not yet judged.
 
-**Priority improvements:**
-1. Recalibrate or learn the per-embedding-model similarity threshold so correctly-retrieved-but-low-similarity queries aren't penalized.
-2. Query-side synonym/paraphrase expansion for interface and comparison questions (E1, SA/NSA, NR-vs-LTE PHY).
-3. Investigate multi-spec recall: ensure both expected specs surface for two-spec queries.
-4. Run LLM-judge faithfulness/answer-correctness on the golden set **[RUN REQUIRED]**.
-5. Run the 5 negative cases through the live answer path and record the LLM-judged refusal rate **[RUN REQUIRED]**.
-6. Expand graded relevance labels beyond the current 7 in-corpus queries.
+**Priority improvements (tracked in `PHASE2.md`):**
+1. Recalibrate or learn the per-embedding-model similarity threshold so correctly-retrieved-but-low-similarity queries aren't penalized. (Track B)
+2. Query-side synonym/paraphrase expansion for interface and comparison questions (E1, SA/NSA, NR-vs-LTE PHY). (Track B)
+3. Investigate multi-spec recall: ensure both expected specs surface for two-spec queries. (Track B)
+4. ~~Run LLM-judge faithfulness/answer-correctness on the golden set~~ **Done 2026-07-02** — see §6.3.
+5. Fix the `is_refusal()` phrase heuristic and wire automated refusal-rate aggregation into the summary; add `answer_keywords` to the golden set. (Track B)
+6. Judge the cloud answer path (Groq 70B responder) with a distinct judge model. (Track B)
+7. Expand graded relevance labels beyond the current 7 in-corpus queries. (Track B)

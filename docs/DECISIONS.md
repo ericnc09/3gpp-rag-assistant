@@ -237,9 +237,3 @@ If a user specifically wants to query an older release, they cannot today withou
 37 specs indexed, one file per spec (the latest available download). 43,121 chunks. The dedup logic is exercised through the eval test suite and the index build output.
 
 ---
-
-## Cross-stream requests
-
-**To Stream A (README owner):**
-
-The README's "Key design decisions" bullet list currently says "No cloud dependencies" — this was true in v1 but is inaccurate for v2 (Groq is a cloud dependency on the cloud path). Please update or remove that bullet, or qualify it as "local deploy only." The accurate framing is in ADR-002 above.

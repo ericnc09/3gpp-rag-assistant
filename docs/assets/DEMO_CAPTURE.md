@@ -1,8 +1,8 @@
 # Demo GIF Capture Instructions
 
-**Target file:** `docs/portfolio-upgrade/assets/demo.gif`  
-**Purpose:** Embedded in README.md as the first visual a hiring manager sees.  
-**Recording:** Eric's real-world action — the instructions below are the script; the recording itself is out of scope for this automated loop.
+**Target file:** `docs/assets/demo.gif`  
+**Purpose:** Embedded in README.md as the first visual a visitor sees.  
+**Recording:** Requires the live app and a screen-capture tool — the instructions below are the script.
 
 ---
 
@@ -76,18 +76,18 @@ Total: 30–45 seconds is ideal. Over 60 seconds will loop awkwardly on GitHub.
 
 ## After recording
 
-1. Save as `docs/portfolio-upgrade/assets/demo.gif`
+1. Save as `docs/assets/demo.gif`
 2. Verify it loops cleanly (no visible jump at the loop point)
-3. Stream A will embed it in README.md at the agreed path: `![Demo](docs/portfolio-upgrade/assets/demo.gif)`
+3. Embed it in README.md: `![Demo](docs/assets/demo.gif)`
 
 ---
 
 ## Placeholder note
 
-`docs/portfolio-upgrade/assets/demo.gif` does not exist yet. This is intentional — the recording requires the live app and is Eric's action. The README should reference this path with a fallback note until the recording is done:
+`docs/assets/demo.gif` does not exist yet — the recording requires the live app. The README references this path with a fallback note until the recording is done:
 
 ```markdown
-<!-- demo.gif placeholder — see docs/portfolio-upgrade/assets/DEMO_CAPTURE.md for recording instructions -->
+<!-- demo.gif placeholder — see docs/assets/DEMO_CAPTURE.md for recording instructions -->
 ```
 
-Stream A: include the image tag pointing to `docs/portfolio-upgrade/assets/demo.gif` in README. Once Eric records and commits the file, the embed will appear automatically.
+Once the recording is committed at `docs/assets/demo.gif`, replace the fallback note in README with the image tag and the embed will appear automatically.

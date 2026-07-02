@@ -73,3 +73,4 @@ build/
 # Temporary files
 *.tmp
 temp/
+docs/portfolio-upgrade/
