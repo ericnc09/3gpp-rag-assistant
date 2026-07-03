@@ -1,17 +1,17 @@
 {
   "baseline": {
     "retrieval": {
-      "avg_hit_rate_at_k": 0.88,
-      "avg_recall_at_k": 0.683,
-      "avg_mrr": 0.697,
-      "avg_ndcg_at_k": 0.718,
-      "avg_context_precision": 0.44,
+      "avg_hit_rate_at_k": 0.96,
+      "avg_recall_at_k": 0.737,
+      "avg_mrr": 0.72,
+      "avg_ndcg_at_k": 0.755,
+      "avg_context_precision": 0.456,
       "avg_context_recall": 0.752
     },
     "latency": {
       "retrieve": {
-        "p50": 0.0791,
-        "p95": 0.1374
+        "p50": 0.0692,
+        "p95": 0.2127
       }
     }
   },

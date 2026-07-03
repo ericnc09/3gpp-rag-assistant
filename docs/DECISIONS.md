@@ -270,3 +270,67 @@ Expansion queries run two embed+search passes, roughly tripling retrieval latenc
 Recall@5 0.683 (from 0.64) with hit-rate maintained and the regression gate green; E1 recovered. The two remaining misses (SA-vs-NSA, NR-vs-LTE PHY) are comparison queries — a single embedding cannot serve both sides of a "difference between X and Y" question — and are the target of the multi-spec decomposition work (M9 remainder, `docs/PHASE2.md` Track B item 3).
 
 ---
+
+## ADR-010: Comparison-query decomposition with side-aware slot allocation
+
+**Status:** Decided  
+**Date:** 2026-07-03 (Phase 2, Track B / M9)  
+**Context source:** `src/core/query_decomposition.py`; `src/core/retriever.py` (`_interleave_sides`, `_cap_per_source`); ADR-009 outcome
+
+### Context
+
+After expansion fusion (ADR-009), the two surviving retrieval misses (SA-vs-NSA, NR-vs-LTE physical layer) were both comparison questions. Two mechanisms failed them in measurably different ways: a single query embedding averages both sides of a "difference between X and Y" question and lands near neither; and RRF — correct for merging rewrites of one intent — rewards consensus across lists, so per-side evidence that appears in only one sub-query's list always loses to consensus noise (measured: adding decomposed sub-queries to the global RRF merge left both misses at hit-rate 0).
+
+### Options considered
+
+| Option | Measured / expected effect |
+|---|---|
+| Global RRF over raw + expanded + sub-queries | **Measured: no effect** — both comparison misses stay at hit-rate 0; consensus bias buries single-list evidence |
+| Side-aware allocation: per-side raw+expanded fusion, per-source dedup within each side, round-robin slots across sides, base ranking as backfill | **Measured improvement:** hit-rate@5 0.88 → 0.96, Recall@5 0.683 → 0.737, MRR 0.697 → 0.720, nDCG@5 0.718 → 0.755; SA-vs-NSA fully recovered; NR-vs-LTE reaches hit-rate 1.0 (recall 1/3) |
+| Expanded-only side searches | **Measured regression during development:** the expanded side text pushed the relevant spec out of the side's own top-10 — sides now fuse raw + expanded, the same never-discard-the-raw rule as ADR-009 |
+
+### Decision
+
+Decomposition is gated on explicit comparison wording (differ/compare/vs/versus) — bare "between" is deliberately excluded because interface questions ("the F1 interface between gNB-CU and gNB-DU") use it without being comparisons. Each side is searched raw and vocabulary-expanded and RRF-fused; each side's list is deduplicated to one chunk per source; top-k slots are allocated round-robin across sides with the fused base ranking as backfill. Non-comparison multi-spec queries get a per-source cap (max 3 chunks per source in a fused top-5) instead. All config-gated (`query_decomposition`, default on).
+
+### Tradeoff accepted
+
+Comparison queries run up to six embed+search passes. Side extraction is a regex heuristic (single-token right side; tails can read awkwardly) — documented in the module. The per-source-dedup-within-sides rule assumes a comparison wants breadth across specs, which is right for the observed cases but untested beyond them.
+
+### Outcome
+
+Recall@5 0.737 against the M9 target of ≥ 0.80. The honest residual, established by direct probing rather than assumed: "NR physical layer" cannot surface TS 38.211 in its own top-12 — the embedding model ranks sibling PHY specs (38.212–38.215) above the labeled definitional spec. That is an embedding-resolution limit, not a query-mechanics problem; the named next lever is the bge-base upgrade already designated in ADR-003 (requires a full index rebuild), plus graded-relevance label review for comparison queries.
+
+---
+
+## ADR-008: Version-aware indexing (release intelligence)
+
+**Status:** Proposed — gated on user-hypothesis validation (see PHASE2.md Track C)  
+**Date:** drafted 2026-07-03 (Phase 2, Track C groundwork)  
+**Context source:** `docs/PHASE2.md` §Track C; ADR-007 (which this would supersede); `src/core/spec_catalog.py` (`infer_release_from_filename`)
+
+*(File order is chronological; ADR numbers follow the assignment in PHASE2.md §8.)*
+
+### Context
+
+ADR-007 dedupes to the latest version per spec at index time, which prevents cross-release contradictions but makes "what changed between Rel-17 and Rel-18?" unanswerable — a question practicing engineers face at every release cycle (hypothesis H1, unvalidated). Answering it requires retaining multiple releases per spec with release metadata, plus Change Request data for the "why."
+
+### Proposal
+
+1. Retain the last N releases per spec (starting with 2–3 releases of flagship specs: 38.300, 38.331, 23.501) with `release` chunk metadata, reversing ADR-007's dedup for those specs only.
+2. Ingest Change Request metadata (portal exports; `-cl` companion files currently skipped by `_SKIP_SUFFIXES`).
+3. Release filter in retrieval; a delta-answer prompt path citing spec version and CR number; a release-delta golden-set axis.
+
+### Groundwork already landed (ungated)
+
+`infer_release_from_filename()` parses the release from the archive filename's version suffix (h30 → Rel-17), and `build_index.py` now stores `release` in chunk metadata — effective at the next index rebuild. This improves citations regardless of whether the full proposal proceeds.
+
+### Gate
+
+Implementation starts only after H1 is validated in structured conversations with practicing RAN/Core engineers (PHASE2.md §Track C). If H1 fails, M10 is re-scoped before any multi-release indexing work begins.
+
+### Tradeoffs to accept if adopted
+
+Index grows roughly linearly with retained releases (storage, build time, possibly latency); cross-release retrieval must not reintroduce the contradictory-answers problem ADR-007 solved — the release filter must default to latest-only unless the query asks for a delta.
+
+---

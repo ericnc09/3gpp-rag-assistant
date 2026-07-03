@@ -35,7 +35,11 @@ from src.core.corpus_config import DEFAULT_CORPUS
 from src.core.document_processor import DocumentProcessor
 from src.core.embeddings import LocalEmbeddingGenerator
 from src.core.vector_store import VectorStore
-from src.core.spec_catalog import infer_spec_from_filename, catalog_summary
+from src.core.spec_catalog import (
+    infer_spec_from_filename,
+    infer_release_from_filename,
+    catalog_summary,
+)
 
 RAW_DIR = Path("data/raw")
 CHUNKS_CACHE = Path("data/processed/chunks.json")
@@ -132,8 +136,14 @@ def enrich_chunks(chunks: list, file_path: Path) -> list:
     # Route through DEFAULT_CORPUS so the config object is the live source of
     # catalog truth, not a direct reference to spec_catalog.CATALOG.
     corpus_entry = DEFAULT_CORPUS.get_entry(inferred["spec_number"]) if inferred else None
+    # Release parsed from the filename's version suffix (e.g. h30 -> Rel-17).
+    # Track C groundwork (ADR-008): lets citations name their release, and is
+    # the metadata a future version-aware index will filter on. Takes effect
+    # at the next index rebuild.
+    release = infer_release_from_filename(file_path.name) or "unknown"
     for chunk in chunks:
         meta = chunk.setdefault("metadata", {})
+        meta["release"] = release
         if corpus_entry:
             meta["domain"]      = corpus_entry["domain"]
             meta["generation"]  = corpus_entry["generation"]

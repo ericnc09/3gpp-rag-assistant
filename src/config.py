@@ -43,6 +43,9 @@ class Settings(BaseSettings):
         top_k_results: Default number of chunks retrieved per query.
         query_expansion: Append full forms of known 3GPP abbreviations to the
             query before embedding (src/core/query_expansion.py).
+        query_decomposition: Split comparison questions into per-side
+            sub-queries fused with the raw ranking
+            (src/core/query_decomposition.py).
     """
 
     model_config = ConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
@@ -96,6 +99,10 @@ class Settings(BaseSettings):
     # Query-time 3GPP vocabulary expansion (src/core/query_expansion.py):
     # appends full forms of known abbreviations before embedding the query.
     query_expansion: bool = True
+    # Comparison-query decomposition (src/core/query_decomposition.py):
+    # "difference between X and Y" issues one sub-query per side, merged
+    # with the raw ranking via rank fusion.
+    query_decomposition: bool = True
 
 
 # Global settings instance

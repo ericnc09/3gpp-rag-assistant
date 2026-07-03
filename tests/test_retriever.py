@@ -103,8 +103,64 @@ class TestRetrieve:
     ):
         from src.core import retriever as retriever_module
         monkeypatch.setattr(retriever_module.settings, "query_expansion", False)
+        monkeypatch.setattr(retriever_module.settings, "query_decomposition", False)
         retriever.retrieve("What is SDAP?")
         mock_embedding_generator.generate_embedding.assert_called_once_with("What is SDAP?")
+
+    def test_comparison_query_searches_per_side(
+        self, retriever, mock_embedding_generator, monkeypatch
+    ):
+        """A comparison query embeds the raw query plus one sub-query per
+        side (expansion disabled here to isolate decomposition)."""
+        from src.core import retriever as retriever_module
+        monkeypatch.setattr(retriever_module.settings, "query_expansion", False)
+        monkeypatch.setattr(retriever_module.settings, "query_decomposition", True)
+        retriever.retrieve("What are the differences between NR and LTE physical layer?")
+        embedded = [c[0][0] for c in mock_embedding_generator.generate_embedding.call_args_list]
+        assert len(embedded) == 3
+        assert "NR physical layer" in embedded
+        assert "LTE physical layer" in embedded
+
+    def test_decomposition_disabled_skips_subqueries(
+        self, retriever, mock_embedding_generator, monkeypatch
+    ):
+        from src.core import retriever as retriever_module
+        monkeypatch.setattr(retriever_module.settings, "query_expansion", False)
+        monkeypatch.setattr(retriever_module.settings, "query_decomposition", False)
+        retriever.retrieve("What are the differences between NR and LTE physical layer?")
+        assert mock_embedding_generator.generate_embedding.call_count == 1
+
+
+class TestCapPerSource:
+    def _doc(self, source, idx):
+        return {"source": source, "chunk_index": idx, "text": "t", "similarity": 0.5}
+
+    def test_dominant_source_capped(self):
+        """Five a-chunks would fill top-5; the cap keeps slots open so the
+        lower-ranked b and c chunks make it in."""
+        from src.core.retriever import DocumentRetriever
+        docs = (
+            [self._doc("a.docx", i) for i in range(5)]
+            + [self._doc("b.docx", 0), self._doc("c.docx", 0)]
+        )
+        result = DocumentRetriever._cap_per_source(docs, k=5)
+        sources = [d["source"] for d in result]
+        assert sources.count("a.docx") == 3
+        assert "b.docx" in sources
+        assert "c.docx" in sources
+
+    def test_backfill_when_no_other_sources(self):
+        """With a single source, deferred chunks backfill to keep k results."""
+        from src.core.retriever import DocumentRetriever
+        docs = [self._doc("a.docx", i) for i in range(6)]
+        result = DocumentRetriever._cap_per_source(docs, k=5)
+        assert len(result) == 5
+
+    def test_order_preserved_within_cap(self):
+        from src.core.retriever import DocumentRetriever
+        docs = [self._doc("a.docx", 0), self._doc("b.docx", 0), self._doc("a.docx", 1)]
+        result = DocumentRetriever._cap_per_source(docs, k=3)
+        assert result == docs
 
     def test_source_filter_applied(self, mock_vector_store, mock_embedding_generator):
         """Only docs whose source contains the filter string are returned."""

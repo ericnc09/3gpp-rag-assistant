@@ -22,6 +22,7 @@ full config (text cleaner, filter dimensions, factory) import from there:
 Nothing in this file changes when a new corpus is added; a new corpus simply
 creates its own CorpusConfig without touching the 3GPP data here.
 """
+import re
 from typing import List, Optional, TypedDict
 
 
@@ -392,6 +393,35 @@ def get_ftp_url(entry: SpecEntry) -> str:
         f"https://www.3gpp.org/ftp/Specs/archive/"
         f"{entry['series']}/{entry['spec_number']}/"
     )
+
+
+# 3GPP archive filenames encode the spec version as -<XYZ> where X, Y, Z
+# are base-36 digits (major.technical.editorial) and the major digit is the
+# release: '8' = Rel-8, 'a' = Rel-10, 'f' = Rel-15, 'g' = Rel-16,
+# 'h' = Rel-17, 'i' = Rel-18, 'j' = Rel-19. Example: 38300-h30.docx is
+# TS 38.300 version 17.3.0 (Rel-17).
+_VERSION_SUFFIX = re.compile(r"-([0-9a-z])([0-9a-z]{2})\.[a-z]+$")
+
+# Plausible release window; anything outside is treated as not-a-version
+# (guards against companion-file suffixes accidentally matching).
+_MIN_RELEASE, _MAX_RELEASE = 5, 24
+
+
+def infer_release_from_filename(filename: str) -> Optional[str]:
+    """Infer the 3GPP release from a spec archive filename.
+
+    Returns e.g. ``"Rel-17"`` for ``38300-h30.docx``, or None when the
+    filename carries no recognizable version suffix. Stored as chunk
+    metadata by the index builder so every citation can name its release —
+    the first building block of release-delta answers (see ADR-008).
+    """
+    m = _VERSION_SUFFIX.search(filename.lower())
+    if not m:
+        return None
+    release = int(m.group(1), 36)
+    if not (_MIN_RELEASE <= release <= _MAX_RELEASE):
+        return None
+    return f"Rel-{release}"
 
 
 def catalog_summary() -> str:

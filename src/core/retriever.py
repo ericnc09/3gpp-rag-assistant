@@ -20,6 +20,7 @@ import logging
 
 from src.config import settings
 from src.core.embeddings import LocalEmbeddingGenerator
+from src.core.query_decomposition import decompose_query
 from src.core.query_expansion import expand_query
 from src.core.vector_store import VectorStore
 
@@ -150,21 +151,147 @@ class DocumentRetriever:
 
         retrieved_docs = self._search(query, n_fetch, where_filter, source_filter, k)
 
-        # Query-time 3GPP vocabulary expansion via rank fusion: also search
-        # with the vocabulary-expanded query and merge the two rankings with
-        # RRF. Replacing the query outright was measured to regress
-        # previously-good queries (see _rrf_merge docstring); fusion keeps
-        # the raw ranking's signal. Queries containing no known
-        # abbreviations skip the second search entirely.
+        # Query rewriting. Two rewriters, two merge strategies:
+        #
+        # 1. Vocabulary expansion (TR 21.905 full forms) — RRF-fused with
+        #    the raw ranking. The raw ranking is never discarded: replacing
+        #    it was measured to regress previously-good queries (see
+        #    _rrf_merge).
+        # 2. Comparison decomposition — a "difference between X and Y"
+        #    question gets one sub-query per side. RRF is deliberately NOT
+        #    used to merge the sides: RRF rewards consensus across lists,
+        #    and a comparison's per-side evidence appears in exactly one
+        #    list, so it always loses to consensus noise (measured: global
+        #    RRF left both comparison misses at hit-rate 0). Sides get
+        #    round-robin slot allocation instead (_interleave_sides), with
+        #    the fused base ranking as backfill.
+        #
+        # Queries that trigger neither rewriter skip the extra searches.
+        expanded: Optional[str] = None
         if settings.query_expansion:
-            expanded = expand_query(query)
-            if expanded != query:
-                logger.info("Query expanded with 3GPP vocabulary; fusing rankings")
-                expanded_docs = self._search(expanded, n_fetch, where_filter, source_filter, k)
-                retrieved_docs = self._rrf_merge([retrieved_docs, expanded_docs])[:k]
+            candidate = expand_query(query)
+            if candidate != query:
+                expanded = candidate
+
+        subqueries: List[str] = []
+        if settings.query_decomposition:
+            subqueries = decompose_query(query)
+
+        if expanded or subqueries:
+            base_lists = [retrieved_docs]
+            if expanded:
+                base_lists.append(
+                    self._search(expanded, n_fetch, where_filter, source_filter, k)
+                )
+            base = self._rrf_merge(base_lists)
+
+            if subqueries:
+                # Each side is itself a raw+expanded RRF fusion — the same
+                # never-discard-the-raw-text principle as the main path
+                # (searching only the expanded side text was measured to
+                # push the relevant spec out of the side's own top-10).
+                # Sides search deeper (2k) so per-source dedup has room.
+                side_lists = []
+                for sub in subqueries:
+                    sub_lists = [
+                        self._search(sub, k * 2, where_filter, source_filter, k * 2)
+                    ]
+                    if settings.query_expansion:
+                        sub_expanded = expand_query(sub)
+                        if sub_expanded != sub:
+                            sub_lists.append(
+                                self._search(
+                                    sub_expanded, k * 2, where_filter,
+                                    source_filter, k * 2,
+                                )
+                            )
+                    side_lists.append(
+                        self._rrf_merge(sub_lists) if len(sub_lists) > 1 else sub_lists[0]
+                    )
+                logger.info(f"Comparison query: interleaving {len(side_lists)} sides")
+                retrieved_docs = self._interleave_sides(side_lists, base, k)
+            else:
+                retrieved_docs = self._cap_per_source(base, k)
 
         logger.info(f"Retrieved {len(retrieved_docs)} documents")
         return retrieved_docs
+
+    @staticmethod
+    def _interleave_sides(
+        side_lists: List[List[Dict]], backfill: List[Dict], k: int
+    ) -> List[Dict]:
+        """Allocate top-k slots round-robin across a comparison's sides.
+
+        Each side's list is walked in rank order; a chunk is taken only if
+        its source document is not yet represented (a comparison needs
+        breadth across specs, not depth in one). Remaining slots backfill
+        from the fused base ranking.
+        """
+        selected: List[Dict] = []
+        seen_chunks: set = set()
+        seen_sources: set = set()
+
+        cursors = [0] * len(side_lists)
+        exhausted = [False] * len(side_lists)
+        while len(selected) < k and not all(exhausted):
+            for i, side in enumerate(side_lists):
+                if len(selected) >= k:
+                    break
+                while cursors[i] < len(side):
+                    doc = side[cursors[i]]
+                    cursors[i] += 1
+                    key = (doc.get("source"), doc.get("chunk_index"))
+                    if doc.get("source") in seen_sources or key in seen_chunks:
+                        continue
+                    selected.append(doc)
+                    seen_chunks.add(key)
+                    seen_sources.add(doc.get("source"))
+                    break
+                else:
+                    exhausted[i] = True
+
+        for doc in backfill:
+            if len(selected) >= k:
+                break
+            key = (doc.get("source"), doc.get("chunk_index"))
+            if key in seen_chunks:
+                continue
+            selected.append(doc)
+            seen_chunks.add(key)
+        return selected[:k]
+
+    # Maximum chunks from a single source document in a fused top-k. Multi-
+    # spec questions need evidence from more than one spec; without a cap a
+    # single strong document can fill every slot. Value chosen so a
+    # dominant source keeps a clear majority (3 of 5) while up to two slots
+    # stay open for other sources; effects are measured by the eval harness.
+    MAX_CHUNKS_PER_SOURCE = 3
+
+    @classmethod
+    def _cap_per_source(cls, docs: List[Dict], k: int) -> List[Dict]:
+        """Take the top-k of a ranked list, limiting chunks per source.
+
+        Walks the ranking in order, deferring chunks beyond
+        MAX_CHUNKS_PER_SOURCE from the same source document; deferred
+        chunks backfill only if fewer than k others exist.
+        """
+        selected: List[Dict] = []
+        deferred: List[Dict] = []
+        counts: Dict = {}
+        for doc in docs:
+            source = doc.get("source")
+            if counts.get(source, 0) < cls.MAX_CHUNKS_PER_SOURCE:
+                selected.append(doc)
+                counts[source] = counts.get(source, 0) + 1
+            else:
+                deferred.append(doc)
+            if len(selected) >= k:
+                break
+        for doc in deferred:
+            if len(selected) >= k:
+                break
+            selected.append(doc)
+        return selected[:k]
 
     def _search(
         self,

@@ -1,7 +1,7 @@
 # Evaluation Report — 3GPP RAG Assistant
 
-**Last run (full + LLM-judge):** 2026-07-03 (`--full --judge --judge-provider groq`; see `data/eval_results.json`; retrieval uses query-expansion rank fusion)
-**Retrieval baseline:** 2026-07-02 fusion baseline (committed in `data/eval/baseline.json`). Pre-Track-B history: the 2026-06-25 baseline (hit-rate@5 0.88, Recall@5 0.64) was reproduced exactly by two subsequent runs before Track B changed retrieval.
+**Last run (full + LLM-judge):** 2026-07-03 (`--full --judge --judge-provider groq`; see `data/eval_results.json`; retrieval uses query-expansion rank fusion + comparison decomposition)
+**Retrieval baseline:** 2026-07-03 Track B baseline (committed in `data/eval/baseline.json`; hit-rate@5 0.96, Recall@5 0.737). History: 2026-06-25 pre-Track-B baseline (0.88 / 0.64, reproduced exactly by two runs), then the 2026-07-02 fusion increment (0.88 / 0.683).
 **Last run (sample fixture):** 2026-06-23 (see `data/eval/sample_results.json`)
 **Harness version:** v4 (v3 + per-model calibrated pass threshold, query-expansion rank fusion, fixed refusal detector with answer-refusal aggregation, answer-relevance golden-set fallback, non-destructive `--regression`)
 **Index size:** 43,121 chunks (local/API index; the hosted Streamlit demo loads a 41,429-chunk subset sized for free-tier deployment)
@@ -32,7 +32,7 @@ These are the signals a skeptical enterprise-RAG PM or technical reviewer will l
 
 **Limitation:** Binary and tolerant — a single lucky chunk in position k scores the same as k/k relevant chunks. Doesn't distinguish a retriever that gets the right chunk at rank 1 from one that barely squeaks a relevant chunk in at rank k. Use alongside MRR and nDCG for a complete picture.
 
-**Current value (full index, in-corpus N=25):** **0.88** — unchanged by Track B's fusion retrieval. It sits above the 84% legacy pass rate because hit-rate credits a relevant chunk in top-5 without also requiring the keyword and similarity thresholds the legacy criterion imposes.
+**Current value (full index, in-corpus N=25):** **0.96** (0.88 before Track B's comparison decomposition recovered both remaining misses to at least one relevant source). It sits above the 84% legacy pass rate because hit-rate credits a relevant chunk in top-5 without also requiring the keyword and similarity thresholds the legacy criterion imposes.
 
 ---
 
@@ -44,7 +44,7 @@ These are the signals a skeptical enterprise-RAG PM or technical reviewer will l
 
 **Limitation:** Treats each expected source as a single binary signal — it doesn't account for how many chunks per spec were retrieved or whether the retrieved chunks contain the specific expected information. A query expecting two specs where the retriever finds one chunk from each scores 1.0, regardless of chunk quality.
 
-**Current value (full index, in-corpus N=25):** **0.683** (2026-07-03, with query-expansion rank fusion; 0.64 before Track B). Still lower than hit-rate because several multi-spec queries surface one of two expected specs (e.g. gNB expects both TS 38.300 and TS 38.401; retrieval often returns only one). Multi-evidence retrieval remains the clearest improvement target — the M9 remainder (query decomposition) attacks it directly.
+**Current value (full index, in-corpus N=25):** **0.737** (0.64 → 0.683 → 0.737 across the two Track B increments). Still lower than hit-rate because several multi-spec queries surface some but not all expected specs. The measured residual against the 0.80 M9 target is an embedding-resolution limit, not query mechanics: direct probing shows "NR physical layer" cannot surface TS 38.211 in its own top-12 — bge-small ranks sibling PHY specs above the labeled definitional spec (see §7).
 
 ---
 
@@ -56,7 +56,7 @@ These are the signals a skeptical enterprise-RAG PM or technical reviewer will l
 
 **Limitation:** Only the rank of the **first** relevant document matters — all subsequent relevant documents are ignored. This makes it less informative when queries require multiple relevant chunks (common in 3GPP reasoning). For multi-evidence queries, nDCG@k is more appropriate.
 
-**Current value (full index, in-corpus N=25):** **0.697** (0.679 before Track B). When a relevant chunk is retrieved at all, it tends to land near the top — consistent with the high hit-rate.
+**Current value (full index, in-corpus N=25):** **0.720** (0.679 before Track B). When a relevant chunk is retrieved at all, it tends to land near the top — consistent with the high hit-rate.
 
 ---
 
@@ -75,7 +75,7 @@ The gain at each rank is discounted: gain(rank) = gain / log2(rank + 1). The sco
 
 **Limitation:** Binary relevance flattens the distinction between a highly relevant chunk and a marginally relevant one. Graded relevance is more informative but requires additional annotation effort. A subset of 7 golden-set queries now carry graded labels (see §3).
 
-**Current value (full index, in-corpus N=25):** **0.718** (graded nDCG@5; 0.723 before Track B — a −0.005 shift, well inside the ±0.05 regression tolerance) — the harness reports this as a "GOOD" band. This is the single most complete retrieval signal in the report: it credits both early placement and multiple relevant chunks.
+**Current value (full index, in-corpus N=25):** **0.755** (graded nDCG@5; 0.723 pre-Track-B, briefly 0.718 after the fusion increment before decomposition lifted it) — the harness reports this as a "GOOD" band. This is the single most complete retrieval signal in the report: it credits both early placement and multiple relevant chunks.
 
 **Sample fixture result (2026-06-23):**
 - nDCG@5 binary: **0.984** (avg over 6 fixture queries)
@@ -96,7 +96,7 @@ These were the original harness metrics. They are keyword-based heuristics, not 
 
 **Limitation:** In a domain-specific RAG corpus, this metric is easily near-1.0 without any real quality signal. It cannot distinguish between a retriever that returns the specific relevant spec section vs. any spec section. It is NOT IR-standard precision. The name is kept for API compatibility.
 
-**Full-index result (2026-06-25, in-corpus N=25):** avg_context_precision = **0.44**. This is lower than the old 10-query figure (1.0) because the 30-query golden set is harder and broader, and because this strict source-filename definition penalizes retrieving a *related* spec section that isn't the exact expected file. It is a deliberately conservative heuristic, not the primary signal — read it alongside hit-rate@5 (0.88).
+**Full-index result (2026-07-03, in-corpus N=25):** avg_context_precision = **0.456**. This is lower than the old 10-query figure (1.0) because the 30-query golden set is harder and broader, and because this strict source-filename definition penalizes retrieving a *related* spec section that isn't the exact expected file. It is a deliberately conservative heuristic, not the primary signal — read it alongside hit-rate@5 (0.96).
 
 ---
 
@@ -122,12 +122,12 @@ These were the original harness metrics. They are keyword-based heuristics, not 
 
 **Full-index results (Apple M2 CPU, 30-query runs):**
 
-| Metric | Pre-Track-B (2026-06-25) | With expansion fusion (2026-07-02 baseline) |
+| Metric | Pre-Track-B (2026-06-25) | Track B baseline (2026-07-03) |
 |---|---|---|
-| Retrieve p50 | 0.021s | **0.079s** |
-| Retrieve p95 | 0.048s | **0.137s** |
+| Retrieve p50 | 0.021s | **0.069s** |
+| Retrieve p95 | 0.048s | **0.213s** |
 
-Expansion fusion runs two embed+search passes for queries containing known abbreviations, which is the ~3× p50 increase — an accepted tradeoff (ADR-009), still two orders of magnitude below generation latency. Queries with no known abbreviations skip the second pass. Generation latency (Groq / Ollama) is separate and tracked in METRICS.md.
+Expansion fusion runs two embed+search passes for queries containing known abbreviations (the ~3× p50 increase), and comparison queries run up to six (the p95 tail) — accepted tradeoffs (ADR-009, ADR-010), still two orders of magnitude below generation latency. Queries triggering neither rewriter run a single pass. Generation latency (Groq / Ollama) is separate and tracked in METRICS.md.
 
 ---
 
@@ -147,9 +147,9 @@ Proxy for grounding: scores (a) presence of grounding vocabulary ("according to"
 
 | Heuristic metric | Value | Note |
 |---|---|---|
-| Answer relevance | **0.76** | Above the 0.70 target. Now computed for the golden set via the `expected_keywords` fallback (Track B fix — earlier runs scored a flat 0.0 because the metric read a field the golden set lacks) |
-| Faithfulness (heuristic) | **0.741** | Below the 0.80 target on this run; earlier runs scored 0.825–0.834. Answers regenerate at temperature 0.1 and this surface heuristic is noisy — treat as directional |
-| Composite answer score | **0.80** | Above the 0.70 target (earlier runs' lower composites were deflated by the relevance defect) |
+| Answer relevance | **0.77** | Above the 0.70 target. Computed for the golden set via the `expected_keywords` fallback (Track B fix — earlier runs scored a flat 0.0 because the metric read a field the golden set lacks) |
+| Faithfulness (heuristic) | **0.716** | Below the 0.80 target on this run; earlier runs scored 0.716–0.834 across four runs. Answers regenerate at temperature 0.1 and this surface heuristic is noisy — treat as directional |
+| Composite answer score | **0.794** | Above the 0.70 target (earlier runs' lower composites were deflated by the relevance defect) |
 | Answer pass rate | **1.00** | Composite pass criterion |
 
 ---
@@ -171,7 +171,7 @@ python scripts/eval_retrieval.py --full --judge --judge-provider groq
 
 **Limitation:** The judge model's own capabilities bound the score quality. Using the same model as the responder is a known bias risk (self-judging); the 2026-07-02 run avoided it by judging local llama3.2 answers with Groq llama-3.3-70b. Judge prompts must be versioned; changing the prompt changes scores.
 
-**Current value (2026-07-03, N=30):** **0.647** average (three runs: 0.647, 0.68, 0.647). Judge notes most often credit grounding but flag missing detail — consistent with a 2 GB responder model summarizing 1,000-char chunks.
+**Current value (2026-07-03, N=30):** **0.64** average (four runs: 0.647, 0.68, 0.647, 0.64). Judge notes most often credit grounding but flag missing detail — consistent with a 2 GB responder model summarizing 1,000-char chunks.
 
 ---
 
@@ -182,7 +182,7 @@ python scripts/eval_retrieval.py --full --judge --judge-provider groq
 
 **Limitation:** Without ground-truth reference answers, "correctness" is the judge's interpretation, not a ground-truth oracle. Treat as a directional signal; calibrate by sampling and reviewing judge reasoning on a small set. Note the average below includes the 5 out-of-corpus probes, which the judge scores 0 by design (a correct refusal "does not address the question").
 
-**Current value (2026-07-03, N=30):** **0.38** average (three runs: 0.387, 0.40, 0.38). Over the 25 in-corpus cases alone the picture is a small responder model that grounds its answers but frequently lacks depth — the judge's most common note is "correct but lacks specific details." This is a responder-capability ceiling, not a retrieval failure, and it quantifies the quality gap between the 2 GB local model and the 70B cloud path.
+**Current value (2026-07-03, N=30):** **0.387** average (four runs: 0.387, 0.40, 0.38, 0.387). Over the 25 in-corpus cases alone the picture is a small responder model that grounds its answers but frequently lacks depth — the judge's most common note is "correct but lacks specific details." This is a responder-capability ceiling, not a retrieval failure, and it quantifies the quality gap between the 2 GB local model and the 70B cloud path.
 
 ---
 
@@ -409,13 +409,13 @@ Produced by `python scripts/eval_retrieval.py --full --judge --judge-provider gr
 
 **What these judge numbers evaluate:** the local deploy path. The public cloud app answers with Groq 70B, which was the judge here, not the responder — judging the cloud path with a distinct judge model is a named follow-up (`PHASE2.md` Track B).
 
-**Run-to-run variance:** answer generation runs at temperature 0.1, so regenerated answers differ slightly between runs; three full runs produced judge faithfulness 0.647 / 0.68 / 0.647 and correctness 0.387 / 0.40 / 0.38 (the judge itself runs at temperature 0.0). Treat judge scores as directional with roughly ±0.03 noise; pinning generation temperature/seed for eval runs remains an open harness item.
+**Run-to-run variance:** answer generation runs at temperature 0.1, so regenerated answers differ slightly between runs; four full runs produced judge faithfulness 0.647 / 0.68 / 0.647 / 0.64 and correctness 0.387 / 0.40 / 0.38 / 0.387 (the judge itself runs at temperature 0.0). Treat judge scores as directional with roughly ±0.03 noise; pinning generation temperature/seed for eval runs remains an open harness item.
 
 ---
 
-### 6.4 Track B run (2026-07-03) — calibrated threshold + query-expansion fusion (current)
+### 6.4 Track B increment 1 (2026-07-03, morning) — calibrated threshold + query-expansion fusion
 
-Produced by `python scripts/eval_retrieval.py --full --judge --judge-provider groq` after the Track B retrieval changes: per-model calibrated pass threshold (0.42 for bge-small; `scripts/eval/calibrate_threshold.py`) and query-expansion rank fusion (ADR-009). This run's summary is the current `data/eval_results.json`; its retrieval metrics match the committed 2026-07-02 fusion baseline.
+Produced by `python scripts/eval_retrieval.py --full --judge --judge-provider groq` after the first Track B retrieval changes: per-model calibrated pass threshold (0.42 for bge-small; `scripts/eval/calibrate_threshold.py`) and query-expansion rank fusion (ADR-009). Superseded as the current artifact by the increment-2 run (§6.5).
 
 **Retrieval — in-corpus (N=25), before/after Track B:**
 
@@ -444,22 +444,53 @@ Replace-mode expansion — substituting the expanded query for the raw one — w
 
 ---
 
+### 6.5 Track B increment 2 (2026-07-03) — comparison decomposition + coverage cap (current)
+
+Produced by `python scripts/eval_retrieval.py --full --judge --judge-provider groq` after the second Track B retrieval change: comparison-query decomposition with side-aware slot allocation, plus a per-source cap on fused rankings (ADR-010). This run is the current `data/eval_results.json`; its retrieval metrics match the committed 2026-07-03 baseline.
+
+**Retrieval — in-corpus (N=25), across Track B:**
+
+| Metric | Pre-Track-B | Increment 1 (fusion) | Increment 2 (decomposition) |
+|---|---|---|---|
+| Hit-rate@5 | 0.88 | 0.88 | **0.96** |
+| Recall@5 | 0.64 | 0.683 | **0.737** |
+| MRR | 0.679 | 0.697 | **0.720** |
+| nDCG@5 (graded) | 0.723 | 0.718 | **0.755** |
+| SA-vs-NSA (gs-007) | miss | miss | **recovered** (recall 1.0) |
+| NR-vs-LTE PHY (gs-025) | miss | miss | **hit-rate 1.0**, recall 1/3 |
+
+Global RRF over the decomposed sub-queries was measured first and left both comparison misses at zero — RRF's consensus bias buries per-side evidence — which is why sides get round-robin slot allocation instead (full comparison in ADR-010).
+
+**Answer + refusal axes (this run):**
+
+| Metric | Value | Note |
+|---|---|---|
+| Answer-refusal rate (N=5, machine-scored) | **1.0 (5/5)** | — |
+| Answer relevance (heuristic) | **0.77** | Above target |
+| Composite answer score | **0.794** | Above the 0.70 target |
+| Heuristic faithfulness | **0.716** | Below the 0.80 target; noisy surface heuristic (0.716–0.834 across four runs) |
+| LLM-judge faithfulness (N=30) | **0.64** | Within the ±0.03 band (four runs) |
+| LLM-judge answer correctness (N=30) | **0.387** | Within the band; local-path responder ceiling |
+| Generate latency p50 / p95 (llama3.2, CPU) | **35.5s / 60.5s** | <5s target still not met on the local path |
+
+---
+
 ## 7. Interpretation and next steps
 
-After Track B, the honest picture:
+After both Track B increments, the honest picture:
 
-- **Strong on single-fact lookup:** hit-rate@5 0.88 and MRR 0.697 — when a query maps to one definitional spec, the right chunk is retrieved and ranked high.
-- **Multi-evidence improved but not closed:** Recall@5 0.683 (from 0.64) with fusion; the M9 target is ≥ 0.80. Two-spec queries still often surface one of two expected specs.
-- **The threshold artifact is fixed:** the calibrated 0.42 pass threshold (bge-small) recovered the four correctly-retrieving queries the old 0.50 cutoff failed. Recalibration on the fusion artifact confirms 0.42 remains optimal (tied with 0.439; one correct retrieval at sim 0.416 sits below either).
-- **The vocabulary miss cluster is two-thirds closed:** E1 recovered via expansion fusion. SA-vs-NSA and NR-vs-LTE PHY remain — comparison queries a single embedding cannot serve; decomposition is the designed fix.
-- **Refusal behaviour is machine-verified at both layers:** 4/5 probes stay below the retrieval threshold; answer-refusal rate 1.0 (5/5), now aggregated automatically.
-- **The local answer path grounds but lacks depth:** judge faithfulness ~0.65 vs correctness ~0.38 across three runs quantifies the 2 GB responder's ceiling. The cloud path's 70B responder is not yet judged.
+- **Strong on lookup and now on comparisons:** hit-rate@5 0.96 and MRR 0.720 — every in-corpus query except one surfaces at least one relevant source in the top-5.
+- **Multi-evidence recall at 0.737 against the 0.80 M9 target.** The measured residual is an embedding-resolution limit, not query mechanics: "NR physical layer" cannot surface TS 38.211 in its own top-12 — bge-small ranks sibling PHY specs (38.212–38.215) above the labeled definitional spec. The named levers are the bge-base upgrade ADR-003 already designated (full index rebuild) and graded-relevance review of whether sibling specs deserve partial credit.
+- **The threshold artifact is fixed:** the calibrated 0.42 pass threshold (bge-small) recovered the four correctly-retrieving queries the old 0.50 cutoff failed.
+- **The vocabulary/comparison miss cluster is closed at the hit-rate level:** E1 via expansion fusion (ADR-009), SA-vs-NSA fully and NR-vs-LTE partially via decomposition (ADR-010).
+- **Refusal behaviour is machine-verified at both layers:** 4/5 probes stay below the retrieval threshold; answer-refusal rate 1.0 (5/5), aggregated automatically.
+- **The local answer path grounds but lacks depth:** judge faithfulness ~0.65 vs correctness ~0.39 across four runs quantifies the 2 GB responder's ceiling. The cloud path's 70B responder is not yet judged.
 
 **Priority improvements (tracked in `PHASE2.md`):**
 1. ~~Recalibrate the per-embedding-model similarity threshold~~ **Done** — calibrated 0.42 (bge-small), derivation in `scripts/eval/calibrate_threshold.py`.
 2. ~~Query-side vocabulary expansion~~ **Done via rank fusion (ADR-009)** — E1 recovered; replace-mode measured and rejected.
-3. Multi-spec recall: query decomposition for comparison questions (SA-vs-NSA, NR-vs-LTE PHY) and coverage-aware ranking. Target: Recall@5 ≥ 0.80. (M9 remainder)
-4. ~~Run LLM-judge faithfulness/answer-correctness~~ **Done** — three runs published; see §6.3–6.4.
-5. ~~Fix the refusal detector, wire aggregation, enable golden-set answer-relevance~~ **Done** — see §3 and §6.4.
+3. ~~Query decomposition for comparison questions~~ **Done via side-aware allocation (ADR-010)** — SA-vs-NSA recovered; global-RRF merge measured and rejected.
+4. Close the Recall@5 gap to ≥ 0.80: bge-base rebuild experiment (ADR-003's designated upgrade; requires full re-index) and graded-relevance label review for sibling-spec credit. (M9 remainder)
+5. ~~Fix the refusal detector, wire aggregation, enable golden-set answer-relevance~~ **Done** — see §3 and §6.5.
 6. Judge the cloud answer path (Groq 70B responder) with a distinct judge model. (Track B remainder)
 7. Expand graded relevance labels beyond the current 7 in-corpus queries; pin generation temperature/seed for reproducible judge runs. (Track B remainder)

@@ -17,8 +17,8 @@ Phase 2 is scoped from measured findings, not feature ideas:
 
 | # | Finding (source: `data/eval_results.json`, EVAL_REPORT §6–7) | Implication |
 |---|---|---|
-| F1 | Recall@5 is 0.64 — several two-spec queries surface only one of the two expected specs | Multi-evidence retrieval needs query decomposition or coverage-aware ranking |
-| F2 | The three genuine retrieval misses (E1 interface, SA-vs-NSA, NR-vs-LTE PHY) are all queries whose phrasing diverges from spec vocabulary | Query-side expansion from a domain glossary should recover them. *Two-thirds closed (2026-07-03): E1 recovered via expansion rank fusion (ADR-009); the two comparison queries need decomposition* |
+| F1 | Recall@5 is 0.64 — several two-spec queries surface only one of the two expected specs | Multi-evidence retrieval needs query decomposition or coverage-aware ranking. *Both shipped (2026-07-03, ADR-010): Recall@5 at 0.737; the residual to 0.80 is a measured embedding-resolution limit (see Track B status)* |
+| F2 | The three genuine retrieval misses (E1 interface, SA-vs-NSA, NR-vs-LTE PHY) are all queries whose phrasing diverges from spec vocabulary | Query-side expansion from a domain glossary should recover them. *Closed at the hit-rate level (2026-07-03): E1 via expansion fusion (ADR-009); SA-vs-NSA fully and NR-vs-LTE to hit-rate 1.0 via decomposition (ADR-010)* |
 | F3 | Four legacy-pass "failures" retrieved the correct source but scored under the fixed 0.50 cosine threshold | The pass threshold needs per-embedding-model calibration. *Closed (2026-07-03): calibrated 0.42 for bge-small via `scripts/eval/calibrate_threshold.py`; all four pass* |
 | F4 | LLM-judge faithfulness / answer-correctness / refusal were `[RUN REQUIRED]` | Closed by Track A (run 2026-07-02: faithfulness 0.68, correctness 0.40, local path). The run surfaced two harness defects, deferred to Track B |
 
@@ -63,7 +63,9 @@ Run the LLM-judge evaluation (answers via the local Ollama path, judged independ
 
 **Success metrics (targets, not results):** Recall@5 ≥ 0.80 in-corpus; the E1 / SA-vs-NSA / NR-vs-LTE-PHY queries pass; hit-rate@5 ≥ 0.88 maintained; `--regression` gate green throughout.
 
-**Status (2026-07-03):** items 1, 2, and 5 shipped — calibrated threshold (0.42 for bge-small), query-expansion rank fusion (ADR-009; replace-mode expansion was measured to regress hit-rate 0.88 → 0.80 and rejected before fusion was built), and all four harness fixes (refusal detector rebuilt on real-refusal fixtures, answer-refusal aggregation, answer-relevance fallback, non-destructive `--regression`). Measured: Recall@5 0.683 (from 0.64), MRR 0.697, hit-rate held at 0.88, E1 recovered, answer-refusal 5/5 machine-scored; gate green on the new fusion baseline. Remaining: item 3 (query decomposition — SA-vs-NSA and NR-vs-LTE-PHY still miss, and the Recall@5 ≥ 0.80 target is not yet met), item 4 (graded labels), item 6 (cloud-path judging).
+**Status (2026-07-03, second increment):** items 1, 2, 3, and 5 shipped. Increment 1: calibrated threshold (0.42 for bge-small), query-expansion rank fusion (ADR-009; replace-mode was measured to regress and rejected), and all four harness fixes. Increment 2: comparison-query decomposition with side-aware slot allocation (ADR-010 — global RRF was measured to bury per-side evidence and replaced with round-robin allocation across per-source-deduped sides). Measured after both increments: **hit-rate@5 0.96 (from 0.88), Recall@5 0.737 (from 0.64), MRR 0.720, nDCG@5 0.755**; SA-vs-NSA fully recovered; NR-vs-LTE reaches hit-rate 1.0; answer-refusal 5/5 machine-scored; gate green.
+
+**The honest residual on the 0.80 Recall@5 target:** direct probing shows "NR physical layer" cannot surface TS 38.211 in its own top-12 — the embedding model ranks sibling PHY specs above the labeled definitional spec. This is an embedding-resolution limit, not query mechanics; the named next levers are the bge-base upgrade already designated in ADR-003 (full index rebuild required) and graded-relevance label review (item 4, needs human review of whether sibling specs deserve partial credit). Item 6 (cloud-path judging) also remains.
 
 ### Track C — Release intelligence (M10)
 
@@ -77,6 +79,8 @@ Run the LLM-judge evaluation (answers via the local Ollama path, judged independ
 4. A release-delta axis in the golden set with its own pass criteria.
 
 **Success metrics:** delta queries on the new golden-set axis answered with the correct release attribution and a verifiable CR citation; no regression on the existing 25-query in-corpus axis.
+
+**Status (2026-07-03):** ungated groundwork landed — `infer_release_from_filename()` in `spec_catalog.py` parses the release from archive filenames (h30 → Rel-17) and the index builder now stores `release` chunk metadata (effective at the next rebuild), and ADR-008 is drafted as **Proposed** in DECISIONS.md. The build itself remains gated on H1 validation conversations with practicing engineers.
 
 ### Track D — Second corpus validated (M11)
 
