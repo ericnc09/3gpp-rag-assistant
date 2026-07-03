@@ -41,6 +41,8 @@ class Settings(BaseSettings):
         log_level: Root logging level (DEBUG / INFO / WARNING / ERROR).
         max_history_length: Number of prior Q&A turns kept in each session.
         top_k_results: Default number of chunks retrieved per query.
+        query_expansion: Append full forms of known 3GPP abbreviations to the
+            query before embedding (src/core/query_expansion.py).
     """
 
     model_config = ConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
@@ -91,6 +93,9 @@ class Settings(BaseSettings):
     # Application Settings
     max_history_length: int = 5
     top_k_results: int = 5
+    # Query-time 3GPP vocabulary expansion (src/core/query_expansion.py):
+    # appends full forms of known abbreviations before embedding the query.
+    query_expansion: bool = True
 
 
 # Global settings instance

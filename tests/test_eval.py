@@ -139,8 +139,26 @@ class TestAnswerRelevance:
         assert score == 1.0
 
     def test_empty_keywords(self):
-        case = {"answer_keywords": []}
+        case = {"answer_keywords": [], "expected_keywords": []}
         assert _answer_relevance("any answer", case) == 0.0
+
+    def test_falls_back_to_expected_keywords(self):
+        """Golden-set cases define only expected_keywords; without the
+        fallback every golden-set case scored 0.0 (2026-07-02 run)."""
+        case = {"expected_keywords": ["gnb", "radio"]}
+        answer = "The gNB handles radio access."
+        assert _answer_relevance(answer, case) == 1.0
+
+    def test_answer_keywords_take_precedence(self):
+        case = {
+            "answer_keywords": ["handover"],
+            "expected_keywords": ["gnb", "radio"],
+        }
+        answer = "The gNB handles radio access."  # matches expected, not answer_keywords
+        assert _answer_relevance(answer, case) == 0.0
+
+    def test_no_keyword_fields_scores_zero(self):
+        assert _answer_relevance("any answer", {}) == 0.0
 
 
 # ---------------------------------------------------------------------------

@@ -87,6 +87,9 @@ from scripts.eval.metrics import (
     context_precision as _context_precision,
     context_recall_keywords as _context_recall,
 )
+from scripts.eval.metrics import is_refusal as _is_answer_refusal
+from scripts.eval.metrics import pass_sim_threshold, REFUSAL_SIM_THRESHOLD
+from src.config import settings
 
 
 # ---------------------------------------------------------------------------
@@ -221,7 +224,13 @@ def evaluate_retrieval_case(retriever: DocumentRetriever, case: Dict) -> Dict:
     relevant_sources = case.get("relevant_sources", [])
     expected_keywords = case.get("expected_keywords", [])
     graded_relevance = case.get("graded_relevance")  # {spec: 0/1/2} where labeled
-    min_sim = case.get("min_similarity", 0.50)
+    # Pass threshold: a per-case override wins (the legacy inline cases pin
+    # 0.50 for baseline continuity); otherwise use the per-embedding-model
+    # calibrated threshold (see scripts/eval/metrics.py PASS_SIM_THRESHOLDS
+    # and scripts/eval/calibrate_threshold.py for the derivation).
+    min_sim = case.get("min_similarity")
+    if min_sim is None:
+        min_sim = pass_sim_threshold(settings.embedding_model)
     k = case.get("k", 5)
 
     t0 = time.time()
@@ -270,8 +279,9 @@ def evaluate_retrieval_case(retriever: DocumentRetriever, case: Dict) -> Dict:
 
     # For an out-of-corpus query the correct behaviour is to NOT retrieve a
     # confident match: refusal is "correct" when top-3 avg similarity stays
-    # below the relevance threshold.
-    refusal_correct = (avg_sim < min_sim) if is_ooc else None
+    # below the refusal boundary. This is deliberately a separate dial from
+    # the calibrated pass threshold (see metrics.REFUSAL_SIM_THRESHOLD).
+    refusal_correct = (avg_sim < REFUSAL_SIM_THRESHOLD) if is_ooc else None
 
     return {
         "id":             case.get("id", query[:30]),
@@ -321,8 +331,14 @@ def _print_retrieval_result(i: int, result: Dict) -> None:
 # ---------------------------------------------------------------------------
 
 def _answer_relevance(answer: str, case: Dict) -> float:
-    """HEURISTIC — fraction of expected answer keywords present in the response."""
-    kw = case.get("answer_keywords", [])
+    """HEURISTIC — fraction of expected answer keywords present in the response.
+
+    Falls back to ``expected_keywords`` when a case has no ``answer_keywords``
+    field: the golden set (data/eval/golden_set.jsonl) defines only
+    ``expected_keywords``, and without the fallback every golden-set case
+    scored 0.0 (the 2026-07-02 run's flat avg_answer_relevance).
+    """
+    kw = case.get("answer_keywords") or case.get("expected_keywords") or []
     if not kw:
         return 0.0
     hits = sum(1 for k in kw if k.lower() in answer.lower())
@@ -372,16 +388,15 @@ def evaluate_answer_quality(answer: str, case: Dict, docs: List[Dict]) -> Dict:
     faithfulness_score = _faithfulness(answer, docs)
 
     is_substantive = len(answer.strip()) >= 50
-    refusal_signals = [
-        "cannot find", "not enough information", "no relevant",
-        "i don't know", "i cannot answer",
-    ]
-    is_refusal = any(s in answer.lower() for s in refusal_signals)
+    # Single source of truth for refusal detection: scripts/eval/metrics.py.
+    # (A narrower inline phrase list here previously missed all five real
+    # refusals in the 2026-07-02 run.)
+    refused = _is_answer_refusal(answer)
 
     score = round(
         (relevance * 0.4)
         + (faithfulness_score * 0.4)
-        + (0.2 if is_substantive and not is_refusal else 0.0),
+        + (0.2 if is_substantive and not refused else 0.0),
         3,
     )
 
@@ -390,7 +405,7 @@ def evaluate_answer_quality(answer: str, case: Dict, docs: List[Dict]) -> Dict:
         "faithfulness":       faithfulness_score,
         "answer_score":       score,
         "is_substantive":     is_substantive,
-        "is_refusal":         is_refusal,
+        "is_refusal":         refused,
         "answer_pass":        score >= 0.40,
         "answer_preview":     answer[:200].replace("\n", " "),
     }
@@ -612,10 +627,12 @@ def print_summary(results: List[Dict], full_eval: bool) -> Dict:
     else:
         print("  → POOR — check vector store and embedding model")
 
-    # Refusal axis — out-of-corpus probes. Correct behaviour is to NOT surface
-    # a confident match (top-3 avg similarity below the relevance threshold).
-    # The LLM-judged refusal rate (did the generated answer actually decline?)
-    # needs --full + a live model and stays [RUN REQUIRED].
+    # Refusal axis — out-of-corpus probes. Two layers:
+    #   Retrieval layer: correct behaviour is to NOT surface a confident match
+    #   (top-3 avg similarity below the relevance threshold).
+    #   Answer layer: the generated answer should decline — scored by the
+    #   heuristic detector in scripts/eval/metrics.py when --full ran.
+    # A judge-based refusal check remains [RUN REQUIRED] (not implemented).
     refusal_summary: Dict = {}
     if ooc:
         n_ooc = len(ooc)
@@ -626,12 +643,25 @@ def print_summary(results: List[Dict], full_eval: bool) -> Dict:
         print(f"  Retrieval-refusal rate: {refused_ok}/{n_ooc} ({ooc_rate:.1%})  "
               f"[top-3 sim below threshold]")
         print(f"  Avg OOC similarity:     {ooc_sim:.3f}  (lower is better)")
-        print(f"  LLM-judged refusal rate: [RUN REQUIRED]  (needs --full + live model)")
+
+        answered = [r for r in ooc if "is_refusal" in r]
+        if answered:
+            ans_refused = sum(1 for r in answered if r.get("is_refusal"))
+            ans_rate = ans_refused / len(answered)
+            print(f"  Answer-refusal rate:    {ans_refused}/{len(answered)} ({ans_rate:.1%})  "
+                  f"[heuristic detector on generated answers]")
+            answer_refusal_rate: Any = round(ans_rate, 3)
+        else:
+            print(f"  Answer-refusal rate:    [RUN REQUIRED]  (needs --full)")
+            answer_refusal_rate = "[RUN REQUIRED]"
+        print(f"  LLM-judged refusal rate: [RUN REQUIRED]  (judge-based refusal check not implemented)")
+
         refusal_summary = {
             "out_of_corpus_probes":    n_ooc,
             "retrieval_refusal_rate":  round(ooc_rate, 3),
             "retrieval_refused_ok":    refused_ok,
             "avg_ooc_similarity":      round(ooc_sim, 3),
+            "answer_refusal_rate":     answer_refusal_rate,
             "llm_judged_refusal_rate": "[RUN REQUIRED]",
         }
 
@@ -741,8 +771,10 @@ def main():
         help="Use legacy 10-query inline test cases instead of golden set",
     )
     parser.add_argument(
-        "--output", default="data/eval_results.json",
-        help="Save results to this JSON file (default: data/eval_results.json)",
+        "--output", default=None,
+        help="Save results to this JSON file (default: data/eval_results.json; "
+             "in --regression mode results are NOT saved unless --output is "
+             "given explicitly, so the gate never overwrites the artifact)",
     )
     parser.add_argument(
         "--top-k", type=int, default=5,
@@ -828,8 +860,12 @@ def main():
 
     summary = print_summary(final_results, full_eval=args.full)
 
-    # Save results
-    if not args.no_save:
+    # Save results. Regression mode is a read-only gate: it must not
+    # overwrite the committed results artifact as a side effect (that
+    # clobbered a judge run on 2026-07-02). Saving in regression mode
+    # requires an explicit --output.
+    save_results = not args.no_save and (args.output is not None or not args.regression)
+    if save_results:
         import datetime
         save_data = {
             "evaluated_at":  datetime.datetime.utcnow().isoformat() + "Z",
@@ -847,7 +883,7 @@ def main():
                 for r in final_results
             ],
         }
-        out_path = Path(args.output)
+        out_path = Path(args.output or "data/eval_results.json")
         out_path.parent.mkdir(parents=True, exist_ok=True)
         with open(out_path, "w") as f:
             json.dump(save_data, f, indent=2)

@@ -88,7 +88,8 @@ Milestones are defined by the outcome they unlock, the metric that confirms them
 ### M9: Retrieval quality v2 (Phase 2, Track B)
 **Outcome:** The measured retrieval gaps from the Phase 1 eval are closed: multi-evidence queries surface all expected specs, and vocabulary-divergent queries stop missing.  
 **Success criteria:** Recall@5 from 0.64 to ≥ 0.80 in-corpus; the E1 / SA-vs-NSA / NR-vs-LTE-PHY miss cluster passes; hit-rate@5 ≥ 0.88 maintained; regression gate green.  
-**Plan:** [`PHASE2.md`](PHASE2.md) §Track B — per-model threshold calibration, TR 21.905 vocabulary expansion, multi-spec query decomposition.
+**Plan:** [`PHASE2.md`](PHASE2.md) §Track B — per-model threshold calibration, TR 21.905 vocabulary expansion, multi-spec query decomposition.  
+**Status:** In progress (2026-07-03). Shipped: calibrated pass threshold (0.42 for bge-small) and query-expansion rank fusion (ADR-009 — replace-mode expansion was measured to regress and rejected). Measured: Recall@5 0.683, hit-rate held at 0.88, E1 miss recovered, gate green on the new fusion baseline. Remaining: query decomposition for the two comparison-query misses; Recall@5 ≥ 0.80 not yet met.
 
 ---
 
@@ -133,7 +134,7 @@ Milestones are defined by outcome and success criteria, not sprint dates. Full m
 | M6: Multi-document reasoning across spec boundaries | Planned | Cross-spec golden-set pass rate ≥ single-spec baseline |
 | M7: Hosted team version with auth + shared sessions | Planned | Auth, per-user history, distributed rate limiting |
 | M8: Eval-gated CI | Planned | A regression in retrieval quality fails CI automatically |
-| M9: Retrieval quality v2 — Phase 2, Track B | Planned | Recall@5 from 0.64 to ≥ 0.80 in-corpus; named miss cluster passes; no single-spec regression |
+| M9: Retrieval quality v2 — Phase 2, Track B | In progress | Recall@5 at 0.683 (from 0.64) via calibrated threshold + expansion fusion; E1 miss fixed; remaining: query decomposition to reach ≥ 0.80 |
 | M10: Release intelligence — Phase 2, Track C | Planned | Version-aware index; release-delta answers citing Change Requests |
 | M11: Second corpus validated — Phase 2, Track D | Planned | NIST SP 800-53 indexed and queryable through CorpusConfig |
 ```

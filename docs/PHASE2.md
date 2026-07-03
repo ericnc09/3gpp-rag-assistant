@@ -18,8 +18,8 @@ Phase 2 is scoped from measured findings, not feature ideas:
 | # | Finding (source: `data/eval_results.json`, EVAL_REPORT §6–7) | Implication |
 |---|---|---|
 | F1 | Recall@5 is 0.64 — several two-spec queries surface only one of the two expected specs | Multi-evidence retrieval needs query decomposition or coverage-aware ranking |
-| F2 | The three genuine retrieval misses (E1 interface, SA-vs-NSA, NR-vs-LTE PHY) are all queries whose phrasing diverges from spec vocabulary | Query-side expansion from a domain glossary should recover them |
-| F3 | Four legacy-pass "failures" retrieved the correct source but scored under the fixed 0.50 cosine threshold | The pass threshold needs per-embedding-model calibration |
+| F2 | The three genuine retrieval misses (E1 interface, SA-vs-NSA, NR-vs-LTE PHY) are all queries whose phrasing diverges from spec vocabulary | Query-side expansion from a domain glossary should recover them. *Two-thirds closed (2026-07-03): E1 recovered via expansion rank fusion (ADR-009); the two comparison queries need decomposition* |
+| F3 | Four legacy-pass "failures" retrieved the correct source but scored under the fixed 0.50 cosine threshold | The pass threshold needs per-embedding-model calibration. *Closed (2026-07-03): calibrated 0.42 for bge-small via `scripts/eval/calibrate_threshold.py`; all four pass* |
 | F4 | LLM-judge faithfulness / answer-correctness / refusal were `[RUN REQUIRED]` | Closed by Track A (run 2026-07-02: faithfulness 0.68, correctness 0.40, local path). The run surfaced two harness defects, deferred to Track B |
 
 ## 3. Goals and non-goals
@@ -62,6 +62,8 @@ Run the LLM-judge evaluation (answers via the local Ollama path, judged independ
 6. Judge the cloud answer path (Groq 70B as responder) with a distinct judge model, so both deploy paths carry published answer-quality numbers.
 
 **Success metrics (targets, not results):** Recall@5 ≥ 0.80 in-corpus; the E1 / SA-vs-NSA / NR-vs-LTE-PHY queries pass; hit-rate@5 ≥ 0.88 maintained; `--regression` gate green throughout.
+
+**Status (2026-07-03):** items 1, 2, and 5 shipped — calibrated threshold (0.42 for bge-small), query-expansion rank fusion (ADR-009; replace-mode expansion was measured to regress hit-rate 0.88 → 0.80 and rejected before fusion was built), and all four harness fixes (refusal detector rebuilt on real-refusal fixtures, answer-refusal aggregation, answer-relevance fallback, non-destructive `--regression`). Measured: Recall@5 0.683 (from 0.64), MRR 0.697, hit-rate held at 0.88, E1 recovered, answer-refusal 5/5 machine-scored; gate green on the new fusion baseline. Remaining: item 3 (query decomposition — SA-vs-NSA and NR-vs-LTE-PHY still miss, and the Recall@5 ≥ 0.80 target is not yet met), item 4 (graded labels), item 6 (cloud-path judging).
 
 ### Track C — Release intelligence (M10)
 

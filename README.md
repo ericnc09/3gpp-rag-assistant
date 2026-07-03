@@ -50,28 +50,28 @@ This system closes that gap. An engineer types a question in plain English; the 
 > Eval report with full methodology: [`docs/EVAL_REPORT.md`](docs/EVAL_REPORT.md)
 > Reproduce: `python scripts/eval_retrieval.py --output data/eval_results.json`
 
-Current results from `data/eval_results.json` (run 2026-07-02 with `--full --judge`, full index of 43,121 chunks, 30-query golden set, top-k=5; retrieval metrics identical to the committed 2026-06-25 baseline). The golden set splits into 25 answerable (in-corpus) queries and 5 deliberately out-of-corpus probes; retrieval metrics are reported over the 25, the refusal axis over the 5.
+Current results from `data/eval_results.json` (run 2026-07-03 with `--full --judge`, full index of 43,121 chunks, 30-query golden set, top-k=5; retrieval uses the Track B calibrated threshold + query-expansion rank fusion and matches the committed 2026-07-02 baseline). The golden set splits into 25 answerable (in-corpus) queries and 5 deliberately out-of-corpus probes; retrieval metrics are reported over the 25, the refusal axis over the 5.
 
 **Retrieval quality — in-corpus (N=25), standard IR metrics:**
 
 | Metric | Value | Notes |
 |---|---|---|
 | Hit-rate@5 | 0.88 | a relevant source appears in top-5 for 88% of queries |
-| nDCG@5 | 0.723 | rank-weighted; "GOOD" band in the harness |
-| MRR | 0.679 | first relevant hit lands high on average |
-| Recall@5 | 0.64 | fraction of all expected source specs surfaced |
+| nDCG@5 | 0.718 | rank-weighted; "GOOD" band (0.723 pre-fusion, within tolerance) |
+| MRR | 0.697 | first relevant hit lands high on average (0.679 pre-fusion) |
+| Recall@5 | 0.683 | fraction of all expected source specs surfaced (0.64 pre-fusion; target ≥ 0.80) |
 | Avg context precision | 0.44 | heuristic (keyword); supplementary, not IR-standard |
-| Avg context recall | 0.71 | heuristic keyword coverage across top-3 |
-| Legacy pass rate | 18/25 (72%) | keyword recall ≥0.5 AND avg sim ≥0.50 |
-| Retrieve latency p50 / p95 | 0.021s / 0.048s | Apple M2 CPU, local ChromaDB |
+| Avg context recall | 0.75 | heuristic keyword coverage across top-3 |
+| Legacy pass rate | 21/25 (84%) | keyword recall ≥0.5 AND avg sim ≥ calibrated threshold (0.42 for bge-small) |
+| Retrieve latency p50 / p95 | 0.079s / 0.137s | Apple M2 CPU; two searches per expanded query (fusion) |
 
-**Refusal axis — out-of-corpus probes (N=5):** 4/5 (80%) correctly stay below the relevance threshold (no confident match surfaced); avg out-of-corpus similarity 0.331 vs 0.557 in-corpus. At the answer layer, all 5/5 generated answers explicitly decline (2026-07-02 run, verifiable in the artifact's `answer_preview` fields) — though the automated refusal detector missed all five, a named harness defect tracked for Phase 2.
+**Refusal axis — out-of-corpus probes (N=5):** 4/5 (80%) correctly stay below the relevance threshold at the retrieval layer; avg out-of-corpus similarity 0.331 vs 0.562 in-corpus. At the answer layer, **5/5 generated answers explicitly decline — now machine-scored** (`answer_refusal_rate` 1.0; the original detector had scored 0/5 on the same behavior, and Track B fixed it using the real refusals as regression fixtures).
 
-**LLM-judge — answer quality (2026-07-02, N=30):** faithfulness **0.68**, answer correctness **0.40** — local Ollama `llama3.2` answers judged independently by Groq `llama-3.3-70b-versatile`. The judge's most common note is "correct but lacks specific details": the small local responder grounds its answers but runs thin on depth. These scores evaluate the local path; judging the cloud path (70B responder) is a named follow-up.
+**LLM-judge — answer quality (2026-07-03, N=30):** faithfulness **0.647**, answer correctness **0.38** (stable across three runs: 0.647/0.68/0.647 and 0.387/0.40/0.38) — local Ollama `llama3.2` answers judged independently by Groq `llama-3.3-70b-versatile`. The judge's most common note is "correct but lacks specific details": the small local responder grounds its answers but runs thin on depth. These scores evaluate the local path; judging the cloud path (70B responder) is a named follow-up.
 
-**Reading the gap between 88% hit-rate and 72% legacy pass.** Of the 7 in-corpus queries that miss the legacy pass bar, 4 (gNB, HARQ, X2, SDAP) actually retrieve the correct source (nDCG 1.0) and miss only because bge-small's cosine similarity runs just under the 0.50 threshold. Only 3 are genuine retrieval misses — E1 interface, SA-vs-NSA, NR-vs-LTE physical layer — all comparison/interface queries where the question phrasing diverges from spec terminology. That cluster, plus the strict similarity threshold, are the concrete next targets (see [roadmap](#roadmap)).
+**What Track B changed, by measurement.** The Phase 1 eval found two retrieval defect classes. Threshold artifacts (4 queries retrieving the right source but failing a fixed 0.50 similarity cutoff) were fixed by calibrating the threshold per embedding model (`scripts/eval/calibrate_threshold.py`). Vocabulary-divergence misses were attacked with query expansion: replacing the query with its expanded form was **measured to regress** hit-rate 0.88 → 0.80 and rejected; rank-fusing the raw and expanded rankings shipped instead (ADR-009), recovering the E1 miss and lifting Recall@5 to 0.683 with hit-rate held. The two remaining misses (SA-vs-NSA, NR-vs-LTE PHY) are comparison queries targeted by the M9 query-decomposition work (see [roadmap](#roadmap)).
 
-**Heuristic vs IR-standard.** Context precision/recall are keyword-based heuristics (RAGAS-inspired), kept as supplementary signals. Hit-rate/Recall@k/MRR/nDCG are the standard IR metrics; LLM-judge faithfulness and answer-correctness are now measured (see above and [`docs/EVAL_REPORT.md`](docs/EVAL_REPORT.md) §6.3). **Still open:** judging the cloud answer path, and two harness fixes the 2026-07-02 run surfaced — both tracked in [`docs/PHASE2.md`](docs/PHASE2.md).
+**Heuristic vs IR-standard.** Context precision/recall are keyword-based heuristics (RAGAS-inspired), kept as supplementary signals. Hit-rate/Recall@k/MRR/nDCG are the standard IR metrics; LLM-judge faithfulness and answer-correctness are measured (see [`docs/EVAL_REPORT.md`](docs/EVAL_REPORT.md) §6.3–6.4). **Still open:** query decomposition for comparison questions, and judging the cloud answer path — tracked in [`docs/PHASE2.md`](docs/PHASE2.md).
 
 ---
 
@@ -149,6 +149,7 @@ The system has two deploy modes that share the same retrieval stack but differ i
 - **Chunk size 1000 / overlap 200.** Large enough to preserve context around a protocol definition; overlap prevents boundary splits from losing cross-sentence references.
 - **Ollama (local) + Groq (cloud) as a toggle.** `src/config.py` `llm_provider` field selects the path. The cloud deploy uses Groq because Streamlit Cloud has no GPU; Ollama is the local-dev default. Both paths are real.
 - **ChromaDB ONNX on cloud.** Avoids a PyTorch dependency on the Streamlit Cloud runtime. The pre-built vectordb is attached to a GitHub Release and downloaded at app startup.
+- **Query expansion via rank fusion.** Queries containing known 3GPP abbreviations are also searched with their TR 21.905 full forms and the two rankings are RRF-merged — replace-mode expansion was measured to regress and rejected (ADR-009).
 
 ---
 
@@ -238,6 +239,7 @@ LOG_LEVEL=INFO
 # RAG
 MAX_HISTORY_LENGTH=5
 TOP_K_RESULTS=5
+QUERY_EXPANSION=true          # 3GPP vocabulary expansion + rank fusion at query time
 ```
 
 ### Embedding models (local path)
@@ -364,7 +366,7 @@ Milestones are defined by outcome and success criteria, not sprint dates. Full m
 | M6: Multi-document reasoning across spec boundaries | Planned | Cross-spec golden-set pass rate ≥ single-spec baseline |
 | M7: Hosted team version with auth + shared sessions | Planned | Auth, per-user history, distributed rate limiting |
 | M8: Eval-gated CI | Planned | A regression in retrieval quality fails CI automatically |
-| M9: Retrieval quality v2 — Phase 2, Track B | Planned | Recall@5 from 0.64 to ≥ 0.80 in-corpus; named miss cluster passes; no single-spec regression |
+| M9: Retrieval quality v2 — Phase 2, Track B | In progress | Recall@5 at 0.683 (from 0.64) via calibrated threshold + expansion fusion; E1 miss fixed; remaining: query decomposition to reach ≥ 0.80 |
 | M10: Release intelligence — Phase 2, Track C | Planned | Version-aware index; release-delta answers citing Change Requests |
 | M11: Second corpus validated — Phase 2, Track D | Planned | NIST SP 800-53 indexed and queryable through CorpusConfig |
 

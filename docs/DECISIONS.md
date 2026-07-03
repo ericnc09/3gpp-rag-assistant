@@ -237,3 +237,36 @@ If a user specifically wants to query an older release, they cannot today withou
 37 specs indexed, one file per spec (the latest available download). 43,121 chunks. The dedup logic is exercised through the eval test suite and the index build output.
 
 ---
+
+## ADR-009: Query-time vocabulary expansion via rank fusion
+
+**Status:** Decided  
+**Date:** 2026-07-02 (Phase 2, Track B)  
+**Context source:** `src/core/query_expansion.py`; `src/core/retriever.py` (`_rrf_merge`, `_search`); eval finding F2 in `docs/PHASE2.md` §2
+
+### Context
+
+The Phase 1 eval's three genuine retrieval misses (E1 interface, SA-vs-NSA, NR-vs-LTE physical layer) share one root cause: the question's phrasing diverges from spec terminology, so the raw query embedding lands far from the defining chunks. The fix candidates all involve injecting standard 3GPP vocabulary (from TR 21.905 and the specs' own abbreviation clauses) into retrieval.
+
+### Options considered
+
+| Option | Measured / expected effect |
+|---|---|
+| No expansion (baseline) | Hit-rate@5 0.88, Recall@5 0.64; the miss cluster stays |
+| Replace the query with its expanded form | **Measured regression:** fixed E1 (nDCG 0 → 1.0) but hit-rate@5 fell 0.88 → 0.80, Recall@5 0.64 → 0.57, nDCG@5 0.723 → 0.641 — the gloss shifts embeddings of previously-healthy queries |
+| Fuse raw + expanded rankings (RRF) | **Measured improvement:** hit-rate@5 held at 0.88, Recall@5 0.64 → 0.683, MRR 0.679 → 0.697, nDCG@5 0.723 → 0.718 (−0.005, within tolerance); E1 fixed (hit-rate 1.0) |
+| Index-time enrichment (expand chunks, not queries) | Requires a full 43K-chunk re-index per vocabulary change; not measured |
+
+### Decision
+
+Reciprocal Rank Fusion of the raw-query and expanded-query rankings (`k_const=60`), config-gated by `query_expansion` (default on). Queries containing no known abbreviations skip the second search entirely. The vocabulary is a general-purpose abbreviation table applied uniformly to every query — deliberately not tuned per eval case — and the decision between replace and fusion was made by the eval harness, not by intuition: replace-mode's regression was measured and rejected before fusion was built.
+
+### Tradeoff accepted
+
+Expansion queries run two embed+search passes, roughly tripling retrieval latency (p50 ~0.02s → ~0.07s) — still two orders of magnitude below generation latency. Under fusion, a result list mixes cosine similarities computed against two different query embeddings, which makes the similarity-based legacy pass criterion noisier (one more reason the standard IR metrics are primary). The cloud Streamlit app does its own inline retrieval and does not yet get expansion — a known gap, tracked with the other cloud-mirror items.
+
+### Outcome
+
+Recall@5 0.683 (from 0.64) with hit-rate maintained and the regression gate green; E1 recovered. The two remaining misses (SA-vs-NSA, NR-vs-LTE PHY) are comparison queries — a single embedding cannot serve both sides of a "difference between X and Y" question — and are the target of the multi-spec decomposition work (M9 remainder, `docs/PHASE2.md` Track B item 3).
+
+---

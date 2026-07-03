@@ -18,7 +18,9 @@ Example:
 from typing import List, Dict, Optional
 import logging
 
+from src.config import settings
 from src.core.embeddings import LocalEmbeddingGenerator
+from src.core.query_expansion import expand_query
 from src.core.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
@@ -55,6 +57,32 @@ class DocumentRetriever:
         self.top_k = top_k
         logger.info(f"Initialized DocumentRetriever (top_k={top_k})")
     
+    @staticmethod
+    def _rrf_merge(ranked_lists: List[List[Dict]], k_const: int = 60) -> List[Dict]:
+        """Merge ranked doc lists via Reciprocal Rank Fusion.
+
+        RRF score(doc) = sum over lists of 1 / (k_const + rank), so a doc
+        ranked well in several lists beats a doc ranked well in only one.
+        Chunks are identified by (source, chunk_index); the first-seen doc
+        dict (with its own cosine similarity) is kept for each chunk.
+
+        Why fusion: replacing the query with its vocabulary-expanded form
+        fixed vocabulary-divergent misses but regressed previously-good
+        queries (measured 2026-07-02: hit-rate@5 0.88 -> 0.80). Fusing the
+        raw and expanded rankings keeps the raw ranking's signal while the
+        expanded ranking rescues queries whose phrasing diverges from spec
+        terminology.
+        """
+        scores: Dict = {}
+        docs_by_key: Dict = {}
+        for ranked in ranked_lists:
+            for rank, doc in enumerate(ranked, start=1):
+                key = (doc.get("source"), doc.get("chunk_index"))
+                scores[key] = scores.get(key, 0.0) + 1.0 / (k_const + rank)
+                docs_by_key.setdefault(key, doc)
+        ordered = sorted(scores, key=lambda key: scores[key], reverse=True)
+        return [docs_by_key[key] for key in ordered]
+
     @staticmethod
     def _build_where_filter(
         domain: Optional[str] = None,
@@ -115,12 +143,39 @@ class DocumentRetriever:
             f"[domain={domain}, generation={generation}]"
         )
 
-        query_embedding = self.embedding_generator.generate_embedding(query)
-
         where_filter = self._build_where_filter(domain=domain, generation=generation)
 
         # Fetch extra results when post-retrieval source_filter is also active
         n_fetch = k * 2 if source_filter else k
+
+        retrieved_docs = self._search(query, n_fetch, where_filter, source_filter, k)
+
+        # Query-time 3GPP vocabulary expansion via rank fusion: also search
+        # with the vocabulary-expanded query and merge the two rankings with
+        # RRF. Replacing the query outright was measured to regress
+        # previously-good queries (see _rrf_merge docstring); fusion keeps
+        # the raw ranking's signal. Queries containing no known
+        # abbreviations skip the second search entirely.
+        if settings.query_expansion:
+            expanded = expand_query(query)
+            if expanded != query:
+                logger.info("Query expanded with 3GPP vocabulary; fusing rankings")
+                expanded_docs = self._search(expanded, n_fetch, where_filter, source_filter, k)
+                retrieved_docs = self._rrf_merge([retrieved_docs, expanded_docs])[:k]
+
+        logger.info(f"Retrieved {len(retrieved_docs)} documents")
+        return retrieved_docs
+
+    def _search(
+        self,
+        embed_text: str,
+        n_fetch: int,
+        where_filter: Optional[Dict],
+        source_filter: Optional[str],
+        k: int,
+    ) -> List[Dict]:
+        """Embed one query string and return up to k matching chunk dicts."""
+        query_embedding = self.embedding_generator.generate_embedding(embed_text)
 
         results = self.vector_store.query(
             query_embedding=query_embedding,
@@ -151,7 +206,6 @@ class DocumentRetriever:
             if len(retrieved_docs) >= k:
                 break
 
-        logger.info(f"Retrieved {len(retrieved_docs)} documents")
         return retrieved_docs
     
     def format_context(self, documents: List[Dict]) -> str:

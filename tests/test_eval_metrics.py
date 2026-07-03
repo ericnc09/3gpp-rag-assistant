@@ -46,7 +46,12 @@ from scripts.eval.metrics import (
     is_refusal,
     refusal_rate,
     _is_relevant,
+    pass_sim_threshold,
+    PASS_SIM_THRESHOLDS,
+    DEFAULT_PASS_SIM_THRESHOLD,
+    REFUSAL_SIM_THRESHOLD,
 )
+from scripts.eval.calibrate_threshold import extract_populations, youden_optimal
 from scripts.eval.regression import (
     _get_nested,
     compare_to_baseline,
@@ -739,6 +744,63 @@ class TestIsRefusal:
         assert is_refusal("The feature is available in NR Release 15.") is False
 
 
+class TestIsRefusalRealWorld:
+    """Regression fixtures: real refusal openings from the 2026-07-02
+    full-index run (data/eval_results.json, neg-001..005 answer_preview).
+    The original phrase list detected 0/5 of these."""
+
+    def test_neg001_unrelated_to_context(self):
+        answer = (
+            "I must point out that the user's question about the caloric content "
+            "of a Big Mac is unrelated to the provided context excerpts from "
+            "3GPP technical specification documents."
+        )
+        assert is_refusal(answer) is True
+
+    def test_neg002_cannot_provide_unrelated(self):
+        answer = (
+            "I cannot provide an answer to your question about configuring "
+            "Kubernetes pod networking with Calico, as it is unrelated to the "
+            "provided context."
+        )
+        assert is_refusal(answer) is True
+
+    def test_neg003_cannot_provide_based_on_context(self):
+        answer = (
+            "I cannot provide an answer based on the provided context excerpts. "
+            "The context excerpts appear to be related to 3GPP technical specifications."
+        )
+        assert is_refusal(answer) is True
+
+    def test_neg004_cannot_provide_realtime(self):
+        answer = (
+            "I cannot provide real-time financial information or stock prices. "
+            "However, I can tell you that Ericsson is a company that provides "
+            "telecommunications equipment."
+        )
+        assert is_refusal(answer) is True
+
+    def test_neg005_cannot_provide_cisco(self):
+        answer = (
+            "I cannot provide an answer to your question about configuring a "
+            "Cisco IOS BGP peer for MPLS VPN. The provided context excerpts are "
+            "from 3GPP specifications."
+        )
+        assert is_refusal(answer) is True
+
+    def test_signal_beyond_scan_window_not_triggered(self):
+        """Signals appearing deep in a long technical answer (past the scan
+        window) must not flag it: only the answer's opening is scanned."""
+        filler = "The gNB provides NR radio access to connected UEs. " * 12
+        assert len(filler) > 400
+        answer = filler + " Values outside this range are not covered."
+        assert is_refusal(answer) is False
+
+    def test_refusal_within_scan_window_triggered(self):
+        answer = "I cannot provide an answer to this. " + ("Details follow. " * 50)
+        assert is_refusal(answer) is True
+
+
 class TestRefusalRate:
     """Tests for the refusal_rate aggregation function."""
 
@@ -774,3 +836,63 @@ class TestRefusalRate:
         answers = ["I cannot answer this.", "MAC schedules resources."]
         r = refusal_rate(answers)
         assert 0.0 <= r <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# Similarity threshold calibration
+# ---------------------------------------------------------------------------
+
+class TestPassSimThreshold:
+    """Per-embedding-model calibrated legacy-pass thresholds."""
+
+    def test_bge_small_calibrated(self):
+        """bge-small threshold from the 2026-07-02 calibration run."""
+        assert pass_sim_threshold("bge-small") == 0.42
+
+    def test_unknown_model_falls_back_to_default(self):
+        assert pass_sim_threshold("some-future-model") == DEFAULT_PASS_SIM_THRESHOLD
+
+    def test_default_is_historical_value(self):
+        assert DEFAULT_PASS_SIM_THRESHOLD == 0.50
+
+    def test_refusal_threshold_is_separate_dial(self):
+        """The OOC refusal boundary stays at 0.50 regardless of calibration."""
+        assert REFUSAL_SIM_THRESHOLD == 0.50
+        assert REFUSAL_SIM_THRESHOLD != PASS_SIM_THRESHOLDS["bge-small"]
+
+
+class TestThresholdCalibration:
+    """Youden-J calibration in scripts/eval/calibrate_threshold.py."""
+
+    def test_separable_populations_perfect_j(self):
+        result = youden_optimal([0.5, 0.6, 0.7], [0.1, 0.2])
+        assert result["j"] == 1.0
+        assert 0.2 < result["threshold"] <= 0.5
+
+    def test_overlapping_populations_best_tradeoff(self):
+        # negative 0.48 sits between positives 0.45 and 0.50: best J drops
+        # the low positive rather than admit the negative.
+        result = youden_optimal([0.45, 0.5], [0.48])
+        assert result["threshold"] == pytest.approx(0.49)
+        assert result["tpr"] == 0.5
+        assert result["fpr"] == 0.0
+
+    def test_requires_both_populations(self):
+        with pytest.raises(ValueError):
+            youden_optimal([], [0.3])
+        with pytest.raises(ValueError):
+            youden_optimal([0.5], [])
+
+    def test_extract_populations_from_artifact_shape(self):
+        results = {
+            "cases": [
+                {"avg_similarity": 0.6, "hit_rate_at_k": 1.0, "is_out_of_corpus": False},
+                {"avg_similarity": 0.5, "hit_rate_at_k": 1.0, "is_out_of_corpus": False},
+                # in-corpus retrieval MISS: excluded from positives
+                {"avg_similarity": 0.55, "hit_rate_at_k": 0.0, "is_out_of_corpus": False},
+                {"avg_similarity": 0.2, "hit_rate_at_k": 0.0, "is_out_of_corpus": True},
+            ]
+        }
+        positives, negatives = extract_populations(results)
+        assert positives == [0.6, 0.5]
+        assert negatives == [0.2]

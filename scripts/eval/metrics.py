@@ -297,6 +297,44 @@ def context_recall_keywords(docs: List[Dict], expected_keywords: List[str]) -> f
 
 
 # ---------------------------------------------------------------------------
+# Similarity thresholds (per embedding model)
+# ---------------------------------------------------------------------------
+
+# Legacy-pass similarity threshold, calibrated per embedding model.
+#
+# Derivation (reproducible): scripts/eval/calibrate_threshold.py on the
+# 2026-07-02 full-index golden-set artifact — sweeping candidate thresholds
+# for maximum Youden's J separating correct in-corpus retrievals
+# (hit_rate_at_k == 1, N=22, min avg-sim 0.426) from out-of-corpus probes
+# (N=5, max avg-sim 0.560) gives optimum 0.421 (TPR 1.0, FPR 0.2, J 0.8).
+# 0.42 sits inside the optimal interval (0.416, 0.426).
+#
+# Known limitation: neg-003 (nonexistent-spec trap "TS 99.999", avg sim
+# 0.560) scores above ANY threshold that admits all correct retrievals — a
+# similarity cutoff cannot catch a probe that is lexically native to the
+# corpus. That case is caught at the answer layer (refusal), not here.
+PASS_SIM_THRESHOLDS = {
+    "bge-small": 0.42,
+}
+DEFAULT_PASS_SIM_THRESHOLD = 0.50
+
+# The retrieval-refusal boundary for out-of-corpus probes stays at the
+# historical 0.50. It is a different dial (is the evidence weak enough to
+# refuse? vs is the evidence strong enough to pass?), and the higher value
+# preserves margin on the OOC side (highest true-OOC sim below the trap:
+# 0.416).
+REFUSAL_SIM_THRESHOLD = 0.50
+
+
+def pass_sim_threshold(embedding_model: str) -> float:
+    """Calibrated legacy-pass similarity threshold for an embedding model.
+
+    Falls back to the historical 0.50 for models without a calibration run.
+    """
+    return PASS_SIM_THRESHOLDS.get(embedding_model, DEFAULT_PASS_SIM_THRESHOLD)
+
+
+# ---------------------------------------------------------------------------
 # Refusal / out-of-corpus detection (negative cases)
 # ---------------------------------------------------------------------------
 
@@ -316,14 +354,34 @@ _REFUSAL_SIGNALS = (
     "unable to find",
     "unable to answer",
     "out of scope",
+    # Patterns observed in real refusals from the 2026-07-02 full-index run
+    # (see data/eval_results.json answer_preview fields for neg-001..005):
+    # the original list detected 0/5 actual refusals.
+    "cannot provide",
+    "can't provide",
+    "unable to provide",
+    "unrelated to",
+    "not related to",
+    "does not contain",
+    "do not contain",
+    "not enough information",
+    "i don't know",
 )
+
+# Refusals lead with the decline: all observed real refusals state it in the
+# opening sentence.  Scanning only the answer's opening avoids false positives
+# from signal words ("outside", "not in") appearing deep in long technical
+# answers.
+_REFUSAL_SCAN_CHARS = 400
 
 
 def is_refusal(answer: str) -> bool:
     """Heuristic check: does the answer signal that the system declined to answer?
 
     Used for negative/out-of-corpus eval cases.  Looks for surface-level
-    refusal phrases in the lowercased answer text.
+    refusal phrases in the lowercased opening of the answer (first
+    ``_REFUSAL_SCAN_CHARS`` characters — observed refusals lead with the
+    decline, and scanning full long answers produced false positives).
 
     Limitations: this is a heuristic.  A system may generate a correct refusal
     without matching any of these phrases, or may match a phrase in context
@@ -336,7 +394,7 @@ def is_refusal(answer: str) -> bool:
     Returns:
         True if the answer appears to be a refusal, False otherwise.
     """
-    low = answer.lower()
+    low = answer[:_REFUSAL_SCAN_CHARS].lower()
     return any(signal in low for signal in _REFUSAL_SIGNALS)
 
 

@@ -86,6 +86,26 @@ class TestRetrieve:
         call_kwargs = mock_vector_store.query.call_args[1]
         assert call_kwargs["n_results"] == retriever.top_k * 2
 
+    def test_query_expansion_applied_before_embedding(
+        self, retriever, mock_embedding_generator, monkeypatch
+    ):
+        """With expansion enabled, the embedded text carries the 3GPP gloss
+        while the user's original wording is preserved as its prefix."""
+        from src.core import retriever as retriever_module
+        monkeypatch.setattr(retriever_module.settings, "query_expansion", True)
+        retriever.retrieve("What is SDAP?")
+        embedded = mock_embedding_generator.generate_embedding.call_args[0][0]
+        assert embedded.startswith("What is SDAP?")
+        assert "Service Data Adaptation Protocol" in embedded
+
+    def test_query_expansion_disabled_passes_raw_query(
+        self, retriever, mock_embedding_generator, monkeypatch
+    ):
+        from src.core import retriever as retriever_module
+        monkeypatch.setattr(retriever_module.settings, "query_expansion", False)
+        retriever.retrieve("What is SDAP?")
+        mock_embedding_generator.generate_embedding.assert_called_once_with("What is SDAP?")
+
     def test_source_filter_applied(self, mock_vector_store, mock_embedding_generator):
         """Only docs whose source contains the filter string are returned."""
         from src.core.retriever import DocumentRetriever
