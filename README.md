@@ -149,7 +149,7 @@ The system has two deploy modes that share the same retrieval stack but differ i
 - **Chunk size 1000 / overlap 200.** Large enough to preserve context around a protocol definition; overlap prevents boundary splits from losing cross-sentence references.
 - **Ollama (local) + Groq (cloud) as a toggle.** `src/config.py` `llm_provider` field selects the path. The cloud deploy uses Groq because Streamlit Cloud has no GPU; Ollama is the local-dev default. Both paths are real.
 - **ChromaDB ONNX on cloud.** Avoids a PyTorch dependency on the Streamlit Cloud runtime. The pre-built vectordb is attached to a GitHub Release and downloaded at app startup.
-- **Query expansion via rank fusion.** Queries containing known 3GPP abbreviations are also searched with their TR 21.905 full forms and the two rankings are RRF-merged — replace-mode expansion was measured to regress and rejected (ADR-009).
+- **Query expansion via rank fusion.** Queries containing known 3GPP abbreviations are also searched with their TR 21.905 full forms and the two rankings are RRF-merged — replace-mode expansion was measured to regress and rejected (ADR-009). Both deploy paths share one embedding-agnostic fusion module (`src/core/retrieval_fusion.py`, ADR-011); the measured gains are bge-small numbers (the cloud ONNX space is unevaluated).
 
 ---
 

@@ -1,6 +1,6 @@
 # Architecture Decision Records — 3GPP RAG Assistant
 
-Seven real decisions made during the build. Each traces directly to code or to the owner's experience, with no invented outcomes.
+Real decisions made during the build (ADR-001 through ADR-007) and the Phase 2 work (ADR-008 through ADR-011). Each traces directly to code or to the owner's experience, with no invented outcomes.
 
 ---
 
@@ -263,7 +263,7 @@ Reciprocal Rank Fusion of the raw-query and expanded-query rankings (`k_const=60
 
 ### Tradeoff accepted
 
-Expansion queries run two embed+search passes, roughly tripling retrieval latency (p50 ~0.02s → ~0.07s) — still two orders of magnitude below generation latency. Under fusion, a result list mixes cosine similarities computed against two different query embeddings, which makes the similarity-based legacy pass criterion noisier (one more reason the standard IR metrics are primary). The cloud Streamlit app does its own inline retrieval and does not yet get expansion — a known gap, tracked with the other cloud-mirror items.
+Expansion queries run two embed+search passes, roughly tripling retrieval latency (p50 ~0.02s → ~0.07s) — still two orders of magnitude below generation latency. Under fusion, a result list mixes cosine similarities computed against two different query embeddings, which makes the similarity-based legacy pass criterion noisier (one more reason the standard IR metrics are primary). The cloud Streamlit app now runs the same fusion via a shared module (ADR-011), though its ONNX embedding space was not separately evaluated.
 
 ### Outcome
 
@@ -332,5 +332,38 @@ Implementation starts only after H1 is validated in structured conversations wit
 ### Tradeoffs to accept if adopted
 
 Index grows roughly linearly with retained releases (storage, build time, possibly latency); cross-release retrieval must not reintroduce the contradictory-answers problem ADR-007 solved — the release filter must default to latest-only unless the query asks for a delta.
+
+---
+
+## ADR-011: Shared retrieval-fusion module across both deploy paths
+
+**Status:** Decided
+**Date:** 2026-07-03 (Phase 2, Track B follow-up)
+**Context source:** `src/core/retrieval_fusion.py`; `src/core/retriever.py`; `streamlit_app.py`
+
+### Context
+
+The Track B retrieval improvements (query-expansion fusion in ADR-009, comparison decomposition in ADR-010) were built into `DocumentRetriever`, which the local/API path uses. The public Streamlit Cloud app (`streamlit_app.py`) is a self-contained file with its own `retrieve()` — deliberately standalone so Streamlit Cloud never imports torch/sentence-transformers (ADR-005). So the live demo, the URL most people actually click, was serving none of the Track B work. That is the wrong artifact to leave stale.
+
+### Options considered
+
+| Option | Assessment |
+|---|---|
+| Leave the cloud app as-is | Rejected — the live demo is the primary shopfront; it should reflect the work |
+| Copy the fusion logic into `streamlit_app.py` | Works, but duplicated logic diverges; two implementations to keep in sync |
+| Import `DocumentRetriever` in the cloud app | Rejected — it pulls sentence-transformers/torch, which the cloud tier deliberately excludes |
+| Extract the fusion orchestration into a pure-stdlib module both paths import | Chosen — single source of truth, no heavy-dependency leak |
+
+### Decision
+
+Extract the rank-fusion primitives and the query-rewriting orchestration into `src/core/retrieval_fusion.py`, which imports only stdlib plus the two pure-stdlib rewriter modules. It drives any backend through a `search_fn(text, n)` callback. `DocumentRetriever` now delegates to it via a closure over its bge-small search; `streamlit_app.py` delegates via a closure over its ONNX ChromaDB search. The import chain was verified to pull in no torch/pydantic/chromadb, so the cloud tier stays lean; the import is also guarded so the app degrades to single-search retrieval rather than failing to start if the package is ever unavailable.
+
+### Tradeoff accepted — the honest caveat
+
+The fusion *mechanics* are embedding-agnostic and transfer, but the *measured quality gains* do not: every golden-set number in this repo (hit-rate 0.96, Recall@5 0.737) was measured on the local **bge-small** index. The cloud app embeds with ChromaDB's built-in **ONNX (all-MiniLM)** model — a different vector space — and there is no eval harness for that path. So the cloud app now *runs* the same query rewriting, but its improvement is **unmeasured**, and the tuned bge-small constants (the 0.42 legacy-pass threshold) are intentionally not applied to it. Two further gaps remain the user's action, not code: the cloud vectordb is a pre-built GitHub Release tarball, so (a) the new `release` chunk metadata (ADR-008 groundwork) and (b) any re-embedded index appear only after a local rebuild and re-upload of that asset.
+
+### Outcome
+
+The refactor is behavior-preserving on the local path — the full eval reproduced every retrieval metric exactly (regression gate green), and the mocked suite stays green (373 tests). The cloud `retrieve()` was verified end-to-end against a fake collection: expansion and decomposition fire, and the raw query is never discarded.
 
 ---

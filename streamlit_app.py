@@ -24,6 +24,19 @@ import streamlit as st
 
 logger = logging.getLogger(__name__)
 
+# Track B query-rewriting rank fusion (ADR-009/010). The orchestration is
+# pure-stdlib and embedding-agnostic, so it runs over this path's ONNX
+# ChromaDB search exactly as it does over the local bge-small retriever.
+# Imported defensively: if the src package isn't importable in some deploy
+# layout, the app degrades to plain single-search retrieval rather than
+# failing to start.
+try:
+    from src.core.retrieval_fusion import fused_retrieve
+    _FUSION_AVAILABLE = True
+except Exception as _fusion_err:  # pragma: no cover - defensive on Streamlit Cloud
+    logger.warning(f"Retrieval fusion unavailable, using plain retrieval: {_fusion_err}")
+    _FUSION_AVAILABLE = False
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -209,9 +222,15 @@ def load_groq_client():
 # RAG functions
 # ---------------------------------------------------------------------------
 
-def retrieve(collection, query: str, top_k: int = 5,
-             domain: Optional[str] = None, generation: Optional[str] = None) -> List[Dict]:
-    """Retrieve relevant chunks from ChromaDB."""
+def _raw_search(collection, query: str, n: int,
+                domain: Optional[str] = None,
+                generation: Optional[str] = None) -> List[Dict]:
+    """Single ONNX-embedded ChromaDB search; returns up to n ranked chunks.
+
+    This is the backend primitive the shared fusion orchestration drives.
+    Each dict carries ``chunk_index`` (the fusion de-duplication key),
+    falling back to the result position when the index metadata predates it.
+    """
     where_filter = None
     conditions = []
     if domain:
@@ -223,7 +242,7 @@ def retrieve(collection, query: str, top_k: int = 5,
     elif len(conditions) > 1:
         where_filter = {"$and": conditions}
 
-    kwargs = {"query_texts": [query], "n_results": top_k}
+    kwargs = {"query_texts": [query], "n_results": n}
     if where_filter:
         kwargs["where"] = where_filter
 
@@ -240,6 +259,7 @@ def retrieve(collection, query: str, top_k: int = 5,
             docs.append({
                 "text": doc,
                 "source": meta.get("source", "unknown"),
+                "chunk_index": meta.get("chunk_index", i),
                 "similarity": round(similarity, 4),
                 "domain": meta.get("domain"),
                 "generation": meta.get("generation"),
@@ -247,6 +267,28 @@ def retrieve(collection, query: str, top_k: int = 5,
                 "spec_title": meta.get("spec_title"),
             })
     return docs
+
+
+def retrieve(collection, query: str, top_k: int = 5,
+             domain: Optional[str] = None, generation: Optional[str] = None) -> List[Dict]:
+    """Retrieve relevant chunks with Track B query-rewriting rank fusion.
+
+    Vocabulary expansion (TR 21.905) and comparison decomposition run over
+    the ONNX ChromaDB search via the shared, embedding-agnostic
+    orchestration (ADR-009/010) — the same code path as the local retriever.
+
+    Note: the rewriting *mechanics* transfer across embedding models, but
+    the quality gains measured on the golden set were measured on the local
+    bge-small index, not this ONNX embedding space; see EVAL_REPORT.md. If
+    the fusion module can't be imported, this falls back to a single search.
+    """
+    if not _FUSION_AVAILABLE:
+        return _raw_search(collection, query, top_k, domain, generation)
+
+    def search_fn(text: str, n: int) -> List[Dict]:
+        return _raw_search(collection, text, n, domain, generation)
+
+    return fused_retrieve(query, search_fn, top_k)
 
 
 def format_context(docs: List[Dict]) -> str:
