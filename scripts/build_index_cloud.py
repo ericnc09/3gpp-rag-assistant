@@ -20,7 +20,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.core.document_processor import DocumentProcessor
-from src.core.spec_catalog import CATALOG, infer_spec_from_filename
+from src.core.spec_catalog import (
+    CATALOG,
+    infer_spec_from_filename,
+    infer_release_from_filename,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -100,6 +104,9 @@ def main():
     total_chunks = 0
     for i, fpath in enumerate(files):
         entry = infer_spec_from_filename(fpath.name)
+        # Release parsed from the filename version suffix (h30 -> Rel-17);
+        # kept consistent with scripts/build_index.py (see ADR-008).
+        release = infer_release_from_filename(fpath.name) or "unknown"
         spec_label = f"TS {entry['spec_number']}" if entry else fpath.name
 
         # Skip already-indexed specs on resume
@@ -133,6 +140,7 @@ def main():
             meta = {
                 "source": fpath.name,
                 "chunk_index": j,
+                "release": release,
                 "domain": entry["domain"] if entry else "unknown",
                 "generation": entry["generation"] if entry else "unknown",
                 "spec_number": entry["spec_number"] if entry else "unknown",
