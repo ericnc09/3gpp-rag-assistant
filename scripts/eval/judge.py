@@ -31,7 +31,8 @@ Why Groq-or-Ollama?
 The production app already dual-supports Groq (cloud) and Ollama (local).
 Using the same providers for the judge avoids adding new dependencies and
 keeps the eval self-contained.  Default judge model:
-  - Groq:   llama-3.3-70b-versatile (same as production)
+  - Groq:   openai/gpt-oss-120b (same as production; runs before 2026-08-16
+            used llama-3.3-70b-versatile, since shut down on Groq's free tier)
   - Ollama: llama3.2 (smaller, local; accuracy may be lower)
 
 Limitations
@@ -98,12 +99,13 @@ Reply with exactly this JSON and nothing else:
 def _call_groq(prompt: str, model: str, api_key: str) -> str:
     """Call Groq inference API and return the raw text response."""
     from groq import Groq  # type: ignore
+    from src.core.groq_llm import completion_kwargs
     client = Groq(api_key=api_key)
     response = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.0,
-        max_tokens=200,
+        **completion_kwargs(model, 200),
     )
     return response.choices[0].message.content.strip()
 
@@ -171,14 +173,14 @@ class LLMJudge:
     Args:
         provider:   "groq" | "ollama"
         model:      Model name. Defaults per provider:
-                    groq  → "llama-3.3-70b-versatile"
+                    groq  → "openai/gpt-oss-120b"
                     ollama→ "llama3.2"
         api_key:    Groq API key. Falls back to GROQ_API_KEY env var.
         ollama_url: Ollama base URL (default "http://localhost:11434").
     """
 
     DEFAULTS = {
-        "groq":   "llama-3.3-70b-versatile",
+        "groq":   "openai/gpt-oss-120b",
         "ollama": "llama3.2",
     }
 

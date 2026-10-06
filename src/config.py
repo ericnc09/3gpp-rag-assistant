@@ -74,7 +74,7 @@ class Settings(BaseSettings):
 
     # Groq Configuration (cloud LLM - free API key from https://console.groq.com/keys)
     groq_api_key: str = ""
-    groq_model: str = "llama-3.3-70b-versatile"
+    groq_model: str = "openai/gpt-oss-120b"
 
     # Embedding Configuration (local sentence-transformers - no API key needed)
     embedding_model: str = "bge-small"  # options: mini, mpnet, bge-small, bge-base

@@ -1,10 +1,12 @@
 """
-Cloud LLM client using Groq API (free tier, runs Llama/Mixtral at inference speed)
+Cloud LLM client using Groq API (free tier, open-weight models at inference speed)
 
-Groq offers free API access to open-source models:
-  - llama-3.3-70b-versatile : Meta's Llama 3.3 70B (best quality, free)
-  - llama-3.1-8b-instant    : Meta's Llama 3.1 8B (fastest, free)
-  - mixtral-8x7b-32768      : Mistral's Mixtral 8x7B (good for technical text)
+Groq offers free API access to open-weight models:
+  - openai/gpt-oss-120b : OpenAI's gpt-oss 120B (best quality, free)
+  - openai/gpt-oss-20b  : OpenAI's gpt-oss 20B (fastest, free)
+
+llama-3.3-70b-versatile and llama-3.1-8b-instant were shut down for free/dev
+tiers on 2026-08-16: https://console.groq.com/docs/deprecations
 
 Get a free API key: https://console.groq.com/keys
 """
@@ -12,6 +14,29 @@ import logging
 from typing import List, Dict, Optional, Iterator
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
+
+# Extra completion tokens for gpt-oss's reasoning, on top of the answer budget.
+# Low effort typically uses a few hundred.
+REASONING_TOKEN_HEADROOM = 1000
+
+
+def completion_kwargs(model: str, max_tokens: int) -> Dict:
+    """Token budget and reasoning kwargs for a chat completion request.
+
+    gpt-oss reasons before answering and its reasoning tokens count against
+    max_tokens, so reasoning models get low effort plus headroom, leaving
+    max_tokens for the answer itself. reasoning_effort is sent via extra_body
+    so older groq SDKs (no reasoning_effort kwarg) still work.
+    """
+    if model.startswith("openai/gpt-oss"):
+        return {
+            "max_tokens": max_tokens + REASONING_TOKEN_HEADROOM,
+            "extra_body": {"reasoning_effort": "low"},
+        }
+    return {"max_tokens": max_tokens}
+
 
 # System prompt tailored for 3GPP technical queries
 SYSTEM_PROMPT = """You are a 3GPP technical specification assistant. You help engineers and \
@@ -32,7 +57,7 @@ class GroqLLM:
 
     def __init__(
         self,
-        model: str = "llama-3.3-70b-versatile",
+        model: str = DEFAULT_GROQ_MODEL,
         api_key: Optional[str] = None,
         temperature: float = 0.1,
         max_tokens: int = 1000,
@@ -44,7 +69,8 @@ class GroqLLM:
             model: Groq model name (see https://console.groq.com/docs/models)
             api_key: Groq API key (or set GROQ_API_KEY env var)
             temperature: Sampling temperature (lower = more deterministic)
-            max_tokens: Maximum tokens in the response
+            max_tokens: Maximum tokens in the answer (reasoning models get
+                        REASONING_TOKEN_HEADROOM on top)
         """
         try:
             from groq import Groq
@@ -108,7 +134,7 @@ class GroqLLM:
                 model=self.model,
                 messages=messages,
                 temperature=self.temperature,
-                max_tokens=self.max_tokens,
+                **completion_kwargs(self.model, self.max_tokens),
             )
             answer = response.choices[0].message.content
             logger.debug(f"Received response ({len(answer)} chars)")
@@ -137,8 +163,8 @@ class GroqLLM:
                 model=self.model,
                 messages=messages,
                 temperature=self.temperature,
-                max_tokens=self.max_tokens,
                 stream=True,
+                **completion_kwargs(self.model, self.max_tokens),
             )
             for chunk in stream:
                 if chunk.choices[0].delta.content:

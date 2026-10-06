@@ -118,8 +118,8 @@ The system has two deploy modes that share the same retrieval stack but differ i
    │  search with │         │  LOCAL: Ollama (llama3.2,      │
    │  domain /    │         │  mistral, phi3) — no API key   │
    │  generation  │         │                                │
-   │  filters     │         │  CLOUD: Groq llama-3.3-70b-    │
-   └──────┬───────┘         │  versatile — GROQ_API_KEY      │
+   │  filters     │         │  CLOUD: Groq openai/gpt-oss-   │
+   └──────┬───────┘         │  120b — GROQ_API_KEY           │
           |                 │  required                      │
    ┌──────▼───────┐         └────────────────────────────────┘
    │  Vector Store│
@@ -192,7 +192,7 @@ streamlit run src/frontend/app.py                          # web UI
 
 ### Option B — Cloud deploy (Groq API key required)
 
-The live app at [3gpp-rag-assistant.streamlit.app](https://3gpp-rag-assistant.streamlit.app/) runs Groq `llama-3.3-70b-versatile` with a pre-built ChromaDB vectordb. To self-host the same configuration:
+The live app at [3gpp-rag-assistant.streamlit.app](https://3gpp-rag-assistant.streamlit.app/) runs Groq `openai/gpt-oss-120b` with a pre-built ChromaDB vectordb. To self-host the same configuration:
 
 1. Get a free Groq API key at [console.groq.com/keys](https://console.groq.com/keys).
 2. Upload a pre-built vectordb tarball to a GitHub Release; set `VECTORDB_URL` to the asset URL.
@@ -222,7 +222,7 @@ LLM_MODEL=llama3.2            # or: mistral, phi3, deepseek-r1
 
 # Groq (cloud path)
 GROQ_API_KEY=                 # get at https://console.groq.com/keys
-# groq_model is set in src/config.py: llama-3.3-70b-versatile
+# groq_model is set in src/config.py: openai/gpt-oss-120b
 
 # Embeddings (local sentence-transformers, applies to local path only)
 EMBEDDING_MODEL=bge-small     # or: mini, mpnet, bge-base

@@ -209,7 +209,7 @@ def load_groq_client():
         return None, None
 
     api_key = os.getenv("GROQ_API_KEY") or st.secrets.get("GROQ_API_KEY", "")
-    model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    model = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
     if not api_key:
         return None, model
@@ -310,12 +310,20 @@ def generate_answer(groq_client, model: str, prompt: str,
         messages.extend(history)
     messages.append({"role": "user", "content": prompt})
 
+    # gpt-oss reasoning tokens count against max_tokens: keep effort low and
+    # add headroom so the answer keeps its full 1000-token budget (mirrors
+    # src.core.groq_llm.completion_kwargs). extra_body works on any groq SDK.
+    if model.startswith("openai/gpt-oss"):
+        extra = {"max_tokens": 1000 + 1000,
+                 "extra_body": {"reasoning_effort": "low"}}
+    else:
+        extra = {"max_tokens": 1000}
     stream = groq_client.chat.completions.create(
         model=model,
         messages=messages,
         temperature=0.1,
-        max_tokens=1000,
         stream=True,
+        **extra,
     )
     for chunk in stream:
         if chunk.choices[0].delta.content:

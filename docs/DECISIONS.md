@@ -64,7 +64,7 @@ Two code paths for LLM calls. Both must be maintained. The `GroqLLM` and `Ollama
 
 ### Outcome
 
-The live Streamlit Cloud app runs Groq llama-3.3-70b-versatile. Local installs default to Ollama. The dual-path architecture is real and working; neither path was invented.
+The live Streamlit Cloud app runs Groq llama-3.3-70b-versatile. Local installs default to Ollama. (2026-10: Groq shut down llama-3.3-70b-versatile for free/dev tiers on 2026-08-16; the cloud path moved to `openai/gpt-oss-120b`, Groq's recommended replacement, with `reasoning_effort=low` so reasoning tokens don't consume the answer budget.) The dual-path architecture is real and working; neither path was invented.
 
 ---
 
