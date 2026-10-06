@@ -352,6 +352,11 @@ st.markdown("""
         font-family: 'Space Grotesk', sans-serif !important;
     }
     code, pre, .stCode { font-family: 'Space Mono', monospace !important; }
+    /* [class*="st-"] above also matches Streamlit's icon spans; without the
+       icon font, ligature names like "keyboard_arrow_right" render as text. */
+    span[data-testid="stIconMaterial"] {
+        font-family: 'Material Symbols Rounded' !important;
+    }
 
     /* Header */
     .main-header {
