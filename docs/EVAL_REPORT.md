@@ -1,7 +1,7 @@
 # Evaluation Report — 3GPP RAG Assistant
 
 **Last run (full + LLM-judge):** 2026-07-03 (`--full --judge --judge-provider groq`; see `data/eval_results.json`; retrieval uses query-expansion rank fusion + comparison decomposition)
-**Retrieval baseline:** 2026-07-03 Track B baseline (committed in `data/eval/baseline.json`; hit-rate@5 0.96, Recall@5 0.737). History: 2026-06-25 pre-Track-B baseline (0.88 / 0.64, reproduced exactly by two runs), then the 2026-07-02 fusion increment (0.88 / 0.683).
+**Retrieval baseline:** 2026-11-20 Sprint 1 baseline (committed in `data/eval/baseline.json`; rebuilt 44,133-chunk index, BM25 hybrid default; hit-rate@5 0.96, Recall@5 0.71, MRR 0.621, nDCG@5 0.698, reproduced exactly by two runs). History: 2026-06-25 pre-Track-B baseline (0.88 / 0.64), 2026-07-02 fusion increment (0.88 / 0.683), 2026-07-03 Track B baseline (0.96 / 0.737) — all three on the earlier 43,121-chunk index, so not directly comparable with the current one.
 **Last run (sample fixture):** 2026-06-23 (see `data/eval/sample_results.json`)
 **Harness version:** v4 (v3 + per-model calibrated pass threshold, query-expansion rank fusion, fixed refusal detector with answer-refusal aggregation, answer-relevance golden-set fallback, non-destructive `--regression`)
 **Index size:** 43,121 chunks (local/API index; the hosted Streamlit demo loads a 41,429-chunk subset sized for free-tier deployment)
@@ -474,6 +474,22 @@ Global RRF over the decomposed sub-queries was measured first and left both comp
 | Generate latency p50 / p95 (llama3.2, CPU) | **35.5s / 60.5s** | <5s target still not met on the local path |
 
 ---
+
+## 6a. Sprint 1 retrieval ablation (2026-11-19)
+
+**Reproduce:** `python scripts/eval_retrieval.py --ablation` (writes `data/eval/ablation.json`). Retrieval only; each variant adds one stage. Index rebuilt from the latest 37 spec versions (44,133 chunks), so absolute numbers differ from the 43,121-chunk runs in §6. Compare rows only with each other.
+
+| Variant | Hit@5 | Recall@5 | MRR | nDCG@5 | OOC refusal | p50 latency |
+|---|---|---|---|---|---|---|
+| dense | 0.800 | 0.630 | 0.643 | 0.664 | 0.8 | 26 ms |
+| dense + Track B (expansion + decomposition) | 0.840 | 0.663 | 0.630 | 0.664 | 0.8 | 51 ms |
+| **+ BM25 hybrid (new default)** | **0.960** | **0.710** | 0.621 | 0.698 | **1.0** | 64 ms |
+| + MiniLM rerank (no BM25) | 0.920 | 0.657 | 0.685 | 0.723 | 0.8 | 520 ms |
+| + BM25 hybrid + MiniLM rerank | 0.920 | 0.677 | **0.727** | **0.762** | 0.8 | 527 ms |
+
+**Reading it:** BM25 hybrid is the recall lever (+0.047 Recall@5, +0.12 hit-rate@5, every OOC probe refused, +13 ms). The MS MARCO MiniLM cross-encoder is an *ordering* lever (best MRR/nDCG) but costs recall and ~0.46 s on CPU, so it ships off by default (ADR-012). N = 25: one query = 0.04 hit-rate; treat deltas under ~0.05 as noise.
+
+**Regression gate note:** against the previous `baseline.json` (built on the older 43,121-chunk index), the hybrid default showed MRR −0.099 and nDCG −0.057. The previous default shows the same drop on the new index (MRR 0.630, nDCG 0.664), so the cause is the corpus change, not hybrid search. The baseline was re-saved on 2026-11-20 on the rebuilt index with the hybrid default. A second run reproduced every retrieval metric exactly and the gate is green.
 
 ## 7. Interpretation and next steps
 

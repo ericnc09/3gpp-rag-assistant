@@ -150,3 +150,14 @@ def mock_retriever(retrieved_docs):
     ret.retrieve.return_value = retrieved_docs
     ret.format_context.return_value = "\n".join(d["text"] for d in retrieved_docs)
     return ret
+
+
+@pytest.fixture(autouse=True)
+def _dense_only_by_default(monkeypatch):
+    """Unit tests run against mocked vector stores whose ``collection`` is a
+    bare MagicMock, so the BM25 hybrid path (on by default in settings)
+    cannot build an index from it. Pin hybrid/rerank off here; the hybrid
+    path is tested explicitly in test_bm25.py and test_retriever.py."""
+    from src.config import settings
+    monkeypatch.setattr(settings, "hybrid_search", False)
+    monkeypatch.setattr(settings, "rerank", False)

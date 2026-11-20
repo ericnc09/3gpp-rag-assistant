@@ -103,6 +103,18 @@ class Settings(BaseSettings):
     # "difference between X and Y" issues one sub-query per side, merged
     # with the raw ranking via rank fusion.
     query_decomposition: bool = True
+    # Hybrid retrieval (src/core/bm25.py, ADR-012): fuse the dense ranking
+    # with a BM25 keyword ranking via RRF, so exact identifiers (message
+    # names, timers, clause numbers) are matched lexically. On by default:
+    # measured +0.047 Recall@5 / +0.12 hit-rate@5 for ~14 ms (EVAL_REPORT §7).
+    hybrid_search: bool = True
+    # Cross-encoder reranking (src/core/reranker.py, ADR-012): re-order the
+    # top `rerank_depth` fused candidates before the top-k cut. Off by
+    # default: best MRR/nDCG but lower Recall@5 than hybrid alone and
+    # ~0.5 s p50 on CPU (EVAL_REPORT §7). Enable when ranking order matters.
+    rerank: bool = False
+    rerank_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    rerank_depth: int = 20
 
 
 # Global settings instance

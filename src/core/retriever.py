@@ -21,7 +21,7 @@ import logging
 
 from src.config import settings
 from src.core.embeddings import LocalEmbeddingGenerator
-from src.core.retrieval_fusion import fused_retrieve
+from src.core.retrieval_fusion import fused_retrieve, rrf_merge
 from src.core.vector_store import VectorStore
 
 logger = logging.getLogger(__name__)
@@ -41,6 +41,10 @@ class DocumentRetriever:
         vector_store: Optional[VectorStore] = None,
         embedding_generator: Optional[LocalEmbeddingGenerator] = None,
         top_k: int = 5,
+        hybrid: Optional[bool] = None,
+        rerank: Optional[bool] = None,
+        expand: Optional[bool] = None,
+        decompose: Optional[bool] = None,
     ) -> None:
         """
         Args:
@@ -50,13 +54,65 @@ class DocumentRetriever:
                 to bge-small which must match the model used at index time.
             top_k: Default number of chunks to return. Can be overridden
                 per-query via the top_k parameter of retrieve().
+            hybrid, rerank, expand, decompose: Per-instance overrides of the
+                matching ``settings`` flags (None = use settings). The eval
+                ablation uses these to compare pipeline variants in-process.
         """
         self.vector_store = vector_store or VectorStore()
         self.embedding_generator = embedding_generator or LocalEmbeddingGenerator(
             model_name="bge-small"
         )
         self.top_k = top_k
-        logger.info(f"Initialized DocumentRetriever (top_k={top_k})")
+        # None = defer to settings at call time (so runtime config changes
+        # and test monkeypatches of `settings` take effect).
+        self._overrides = {
+            "hybrid_search": hybrid,
+            "rerank": rerank,
+            "query_expansion": expand,
+            "query_decomposition": decompose,
+        }
+        self._reranker = None
+        logger.info(
+            f"Initialized DocumentRetriever (top_k={top_k}, hybrid={self.hybrid}, "
+            f"rerank={self.rerank})"
+        )
+
+    def _flag(self, name: str) -> bool:
+        override = self._overrides[name]
+        return getattr(settings, name) if override is None else override
+
+    @property
+    def hybrid(self) -> bool:
+        return self._flag("hybrid_search")
+
+    @property
+    def rerank(self) -> bool:
+        return self._flag("rerank")
+
+    @property
+    def expand(self) -> bool:
+        return self._flag("query_expansion")
+
+    @property
+    def decompose(self) -> bool:
+        return self._flag("query_decomposition")
+
+    @property
+    def reranker(self):
+        """Lazily constructed cross-encoder (model itself is process-cached)."""
+        if self._reranker is None:
+            from src.core.reranker import CrossEncoderReranker
+
+            self._reranker = CrossEncoderReranker(settings.rerank_model)
+        return self._reranker
+
+    def _bm25_index(self):
+        from src.core.bm25 import get_index_for_collection
+
+        collection = self.vector_store.collection
+        key = (str(getattr(self.vector_store, "persist_directory", "")),
+               collection.name, collection.count())
+        return get_index_for_collection(collection, cache_key=key)
 
     @staticmethod
     def _build_where_filter(
@@ -123,15 +179,19 @@ class DocumentRetriever:
         # Bind this call's filters into a search primitive, then delegate the
         # query-rewriting rank fusion to the shared, embedding-agnostic
         # orchestration (also used by the Streamlit Cloud path).
+        search = self._hybrid_search if self.hybrid else self._search
+
         def search_fn(text: str, n: int) -> List[Dict]:
-            return self._search(text, n, where_filter, source_filter)
+            return search(text, n, where_filter, source_filter)
 
         retrieved_docs = fused_retrieve(
             query,
             search_fn,
             k,
-            expand=settings.query_expansion,
-            decompose=settings.query_decomposition,
+            expand=self.expand,
+            decompose=self.decompose,
+            rerank_fn=self.reranker if self.rerank else None,
+            rerank_depth=settings.rerank_depth,
         )
 
         logger.info(f"Retrieved {len(retrieved_docs)} documents")
@@ -150,16 +210,27 @@ class DocumentRetriever:
         that up to n survive the filter.
         """
         query_embedding = self.embedding_generator.generate_embedding(embed_text)
+        return self._dense(query_embedding, n, where_filter, source_filter)
 
+    def _dense(
+        self,
+        query_embedding: List[float],
+        n: int,
+        where_filter: Optional[Dict],
+        source_filter: Optional[str],
+    ) -> List[Dict]:
+        """Vector-store ANN search for an already-embedded query."""
         n_fetch = n * 2 if source_filter else n
         results = self.vector_store.query(
             query_embedding=query_embedding,
             n_results=n_fetch,
             where_filter=where_filter,
         )
+        ids = (results.get("ids") or [[]])[0] or [None] * len(results["documents"][0])
 
         retrieved_docs = []
-        for doc, metadata, distance in zip(
+        for chunk_id, doc, metadata, distance in zip(
+            ids,
             results["documents"][0],
             results["metadatas"][0],
             results["distances"][0],
@@ -167,23 +238,82 @@ class DocumentRetriever:
             if source_filter and source_filter not in metadata.get("source", ""):
                 continue
 
-            retrieved_docs.append(
-                {
-                    "text": doc,
-                    "source": metadata.get("source", "unknown"),
-                    "chunk_index": metadata.get("chunk_index", 0),
-                    "similarity": 1 - distance,
-                    "domain": metadata.get("domain", "unknown"),
-                    "generation": metadata.get("generation", "unknown"),
-                    "spec_number": metadata.get("spec_number", "unknown"),
-                    "spec_title": metadata.get("spec_title", "unknown"),
-                }
-            )
+            retrieved_docs.append(self._to_doc(chunk_id, doc, metadata, 1 - distance))
 
             if len(retrieved_docs) >= n:
                 break
 
         return retrieved_docs
+
+    def _hybrid_search(
+        self,
+        embed_text: str,
+        n: int,
+        where_filter: Optional[Dict],
+        source_filter: Optional[str],
+    ) -> List[Dict]:
+        """Dense + BM25 search fused with Reciprocal Rank Fusion.
+
+        Both rankings are fetched n deep and RRF-merged (the same fusion as
+        query expansion, ADR-009). Chunks found only by BM25 get their
+        ``similarity`` computed from their stored embedding, in the same
+        units the vector store reports, so every returned doc carries a
+        comparable cosine-derived similarity — the refusal threshold and the
+        calibrated pass threshold depend on that.
+        """
+        query_embedding = self.embedding_generator.generate_embedding(embed_text)
+        dense = self._dense(query_embedding, n, where_filter, source_filter)
+
+        hits = self._bm25_index().search(embed_text, n, where_filter, source_filter)
+        dense_by_id = {d.get("id"): d for d in dense}
+        missing = [h["id"] for h in hits if h["id"] not in dense_by_id]
+        sims = self._similarities_for_ids(query_embedding, missing)
+
+        keyword = [
+            dense_by_id.get(hit["id"])
+            or self._to_doc(hit["id"], hit["text"], hit["metadata"], sims.get(hit["id"], 0.0))
+            for hit in hits
+        ]
+
+        return rrf_merge([dense, keyword])[:n]
+
+    def _similarities_for_ids(
+        self, query_embedding: List[float], ids: List[str]
+    ) -> Dict[str, float]:
+        """Similarity (1 - distance, in the collection's metric) for given ids."""
+        if not ids:
+            return {}
+        collection = self.vector_store.collection
+        got = collection.get(ids=ids, include=["embeddings"])
+        space = (getattr(collection, "metadata", None) or {}).get("hnsw:space", "l2")
+        q = list(query_embedding)
+        sims: Dict[str, float] = {}
+        for chunk_id, emb in zip(got["ids"], got["embeddings"]):
+            dot = sum(a * b for a, b in zip(q, emb))
+            if space == "cosine":
+                qn = sum(a * a for a in q) ** 0.5
+                en = sum(b * b for b in emb) ** 0.5
+                distance = 1 - dot / (qn * en or 1.0)
+            elif space == "ip":
+                distance = 1 - dot
+            else:  # ChromaDB "l2" reports squared Euclidean distance
+                distance = sum((a - b) ** 2 for a, b in zip(q, emb))
+            sims[chunk_id] = 1 - distance
+        return sims
+
+    @staticmethod
+    def _to_doc(chunk_id, text: str, metadata: Dict, similarity: float) -> Dict:
+        return {
+            "id": chunk_id,
+            "text": text,
+            "source": metadata.get("source", "unknown"),
+            "chunk_index": metadata.get("chunk_index", 0),
+            "similarity": similarity,
+            "domain": metadata.get("domain", "unknown"),
+            "generation": metadata.get("generation", "unknown"),
+            "spec_number": metadata.get("spec_number", "unknown"),
+            "spec_title": metadata.get("spec_title", "unknown"),
+        }
 
     def format_context(self, documents: List[Dict]) -> str:
         """Format retrieved chunks into a numbered context block for the LLM prompt.

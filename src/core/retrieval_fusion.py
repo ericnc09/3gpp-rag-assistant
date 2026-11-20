@@ -30,7 +30,7 @@ absent here. A different backend (e.g. the ONNX cloud path) would need its
 own calibration before that threshold is applied to it.
 """
 
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Optional
 
 from src.core.query_decomposition import decompose_query
 from src.core.query_expansion import expand_query
@@ -38,6 +38,15 @@ from src.core.query_expansion import expand_query
 # A backend search primitive: given query text and a result cap, return up
 # to that many ranked result dicts.
 SearchFn = Callable[[str, int], List[Dict]]
+
+# A reranking stage: given the user query and a candidate list, return the
+# candidates re-ordered by relevance (e.g. a cross-encoder; see reranker.py).
+# Passed in as a callback so this module stays pure-Python.
+RerankFn = Callable[[str, List[Dict]], List[Dict]]
+
+# Candidate-pool size handed to the reranker. Deeper pools give the reranker
+# more to promote but cost latency linearly (one cross-encoder pass each).
+DEFAULT_RERANK_DEPTH = 20
 
 # Maximum chunks from a single source document in a fused top-k. Multi-spec
 # questions need evidence from more than one spec; without a cap a single
@@ -153,6 +162,8 @@ def fused_retrieve(
     *,
     expand: bool = True,
     decompose: bool = True,
+    rerank_fn: Optional[RerankFn] = None,
+    rerank_depth: int = DEFAULT_RERANK_DEPTH,
 ) -> List[Dict]:
     """Retrieve for a query with query-rewriting rank fusion.
 
@@ -171,6 +182,12 @@ def fused_retrieve(
 
     Queries that trigger neither rewriter run a single search and return.
 
+    3. Optional reranking (``rerank_fn``) — the base ranking is fetched
+       ``rerank_depth`` deep and the reranker re-orders that pool before the
+       top-k cut. Comparison queries are NOT reranked: a single relevance
+       score over the whole question would re-concentrate slots on whichever
+       side scores higher, undoing the per-side allocation above.
+
     Args:
         query: The user's natural-language query.
         search_fn: Backend primitive ``(text, n) -> List[Dict]`` returning
@@ -178,22 +195,27 @@ def fused_retrieve(
         k: Number of results to return.
         expand: Enable vocabulary-expansion fusion.
         decompose: Enable comparison decomposition.
+        rerank_fn: Optional reranking stage ``(query, docs) -> docs``.
+        rerank_depth: Candidate-pool size passed to ``rerank_fn``.
 
     Returns:
         Up to k result dicts.
     """
-    base_raw = search_fn(query, k)
+    depth = max(k, rerank_depth) if rerank_fn else k
+    base_raw = search_fn(query, depth)
 
     expanded = expand_query(query) if expand else query
     has_expanded = expand and expanded != query
     subqueries = decompose_query(query) if decompose else []
 
     if not has_expanded and not subqueries:
+        if rerank_fn:
+            return rerank_fn(query, base_raw[:depth])[:k]
         return base_raw[:k]
 
     base_lists = [base_raw]
     if has_expanded:
-        base_lists.append(search_fn(expanded, k))
+        base_lists.append(search_fn(expanded, depth))
     base = rrf_merge(base_lists)
 
     if subqueries:
@@ -212,4 +234,6 @@ def fused_retrieve(
             side_lists.append(rrf_merge(sub_lists) if len(sub_lists) > 1 else sub_lists[0])
         return interleave_sides(side_lists, base, k)
 
+    if rerank_fn:
+        base = rerank_fn(query, base[:depth])
     return cap_per_source(base, k)

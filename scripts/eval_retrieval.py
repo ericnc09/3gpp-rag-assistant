@@ -737,6 +737,90 @@ def print_summary(results: List[Dict], full_eval: bool) -> Dict:
 
 
 # ---------------------------------------------------------------------------
+# Ablation (Sprint 1, ADR-012)
+# ---------------------------------------------------------------------------
+
+# Each variant adds one stage, so every row's delta is attributable to it.
+ABLATION_VARIANTS: List[Dict[str, Any]] = [
+    {"name": "dense",                 "expand": False, "decompose": False, "hybrid": False, "rerank": False},
+    {"name": "dense + Track B",       "expand": True,  "decompose": True,  "hybrid": False, "rerank": False},
+    {"name": "+ BM25 hybrid",         "expand": True,  "decompose": True,  "hybrid": True,  "rerank": False},
+    {"name": "+ rerank (no BM25)",    "expand": True,  "decompose": True,  "hybrid": False, "rerank": True},
+    {"name": "+ BM25 hybrid + rerank", "expand": True, "decompose": True,  "hybrid": True,  "rerank": True},
+]
+
+
+def _ablation_row(results: List[Dict]) -> Dict[str, Any]:
+    in_corpus = [r for r in results if not r.get("is_out_of_corpus")]
+    ooc = [r for r in results if r.get("is_out_of_corpus")]
+    n = len(in_corpus) or 1
+
+    def avg(key, rows=in_corpus):
+        return round(sum(r.get(key, 0) for r in rows) / (len(rows) or 1), 3)
+
+    times = [r["retrieve_time"] for r in results]
+    return {
+        "hit_rate_at_5": avg("hit_rate_at_k"),
+        "recall_at_5":   avg("recall_at_k"),
+        "mrr":           avg("mrr"),
+        "ndcg_at_5":     avg("ndcg_at_k"),
+        "pass_rate":     round(sum(1 for r in in_corpus if r["retrieval_pass"]) / n, 3),
+        "retrieval_refusal_rate": (
+            round(sum(1 for r in ooc if r.get("refusal_correct")) / len(ooc), 3) if ooc else None
+        ),
+        "latency_p50_s": _percentile(times, 50),
+        "latency_p95_s": _percentile(times, 95),
+        "per_case_recall": {r["id"]: r["recall_at_k"] for r in in_corpus},
+    }
+
+
+def run_ablation(test_cases: List[Dict], top_k: int, total_chunks: int,
+                 dataset_label: str, out_path: str = "data/eval/ablation.json") -> List[Dict]:
+    """Run retrieval-only eval for each pipeline variant and tabulate."""
+    import datetime
+
+    rows = []
+    for variant in ABLATION_VARIANTS:
+        flags = {k: variant[k] for k in ("expand", "decompose", "hybrid", "rerank")}
+        retriever = DocumentRetriever(top_k=top_k, **flags)
+        # Warm-up: builds the BM25 index / loads the cross-encoder so one-time
+        # setup cost is not charged to the first case's latency.
+        retriever.retrieve("warm-up query")
+        print(f"\n[ablation] {variant['name']}  {flags}")
+        results = [evaluate_retrieval_case(retriever, case) for case in test_cases]
+        row = {"variant": variant["name"], **flags, **_ablation_row(results)}
+        rows.append(row)
+        print(f"  hit@5={row['hit_rate_at_5']:.3f}  R@5={row['recall_at_5']:.3f}  "
+              f"MRR={row['mrr']:.3f}  nDCG@5={row['ndcg_at_5']:.3f}  "
+              f"p50={row['latency_p50_s']}s")
+
+    print("\n| Variant | Hit@5 | Recall@5 | MRR | nDCG@5 | OOC refusal | p50 latency |")
+    print("|---|---|---|---|---|---|---|")
+    for r in rows:
+        print(f"| {r['variant']} | {r['hit_rate_at_5']:.3f} | {r['recall_at_5']:.3f} | "
+              f"{r['mrr']:.3f} | {r['ndcg_at_5']:.3f} | {r['retrieval_refusal_rate']} | "
+              f"{r['latency_p50_s']}s |")
+
+    out = Path(out_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with open(out, "w") as f:
+        json.dump({
+            "evaluated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "config": {
+                "top_k": top_k,
+                "total_chunks": total_chunks,
+                "dataset": dataset_label,
+                "embedding_model": settings.embedding_model,
+                "rerank_model": settings.rerank_model,
+                "rerank_depth": settings.rerank_depth,
+            },
+            "variants": rows,
+        }, f, indent=2)
+    print(f"\nAblation saved to {out}")
+    return rows
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -796,6 +880,19 @@ def main():
         "--baseline", default="data/eval/baseline.json",
         help="Path to regression baseline file (default: data/eval/baseline.json)",
     )
+    parser.add_argument(
+        "--hybrid", action=argparse.BooleanOptionalAction, default=None,
+        help="Force BM25+dense hybrid retrieval on/off (default: settings.hybrid_search)",
+    )
+    parser.add_argument(
+        "--rerank", action=argparse.BooleanOptionalAction, default=None,
+        help="Force cross-encoder reranking on/off (default: settings.rerank)",
+    )
+    parser.add_argument(
+        "--ablation", action="store_true",
+        help="Run the retrieval-only ablation (dense -> +Track B -> +BM25 -> "
+             "+rerank) and write data/eval/ablation.json",
+    )
     args = parser.parse_args()
 
     from src.core.vector_store import VectorStore
@@ -832,7 +929,13 @@ def main():
         mode_parts.append(f"LLM-judge ({args.judge_provider})")
     print(f"Mode:          {' + '.join(mode_parts)}")
 
-    retriever = DocumentRetriever(top_k=args.top_k)
+    if args.ablation:
+        run_ablation(test_cases, args.top_k, vs_stats["total_chunks"], dataset_label)
+        return
+
+    retriever = DocumentRetriever(top_k=args.top_k, hybrid=args.hybrid, rerank=args.rerank)
+    print(f"Pipeline:      hybrid={retriever.hybrid}  rerank={retriever.rerank}  "
+          f"expand={retriever.expand}  decompose={retriever.decompose}")
 
     # Retrieval evaluation
     print(f"\n{'='*60}")

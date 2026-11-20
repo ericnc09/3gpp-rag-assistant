@@ -367,3 +367,52 @@ The fusion *mechanics* are embedding-agnostic and transfer, but the *measured qu
 The refactor is behavior-preserving on the local path — the full eval reproduced every retrieval metric exactly (regression gate green), and the mocked suite stays green (373 tests). The cloud `retrieve()` was verified end-to-end against a fake collection: expansion and decomposition fire, and the raw query is never discarded.
 
 ---
+
+## ADR-012: Hybrid BM25 + dense retrieval on; cross-encoder reranker available but off
+
+**Status:** Decided
+**Date:** 2026-11-19 (Sprint 1 — retrieval upgrades, M9)
+**Context source:** `src/core/bm25.py`; `src/core/reranker.py`; `src/core/retriever.py`; `src/core/retrieval_fusion.py`; `data/eval/ablation.json`
+
+### Context
+
+Dense bge-small retrieval blurs exact identifiers — message names (`RRCReconfiguration`), timers (`T310`), interfaces (`X2`, `N2`), clause numbers — into topical neighbourhoods. Recall@5 had plateaued below the M9 target of 0.80. Two standard levers were untested here: lexical (BM25) retrieval fused with dense, and a cross-encoder reranking stage.
+
+### Options considered
+
+| Option | Assessment |
+|---|---|
+| `rank_bm25` / Elasticsearch / Chroma full-text | Rejected — new dependency or service; the Streamlit Cloud path must stay torch-free and lean (ADR-005, ADR-011) |
+| Pure-stdlib BM25 built from the ChromaDB collection at first use | Chosen — no second artifact to ship, identifier-preserving tokenizer, `array`-backed postings keep 44k chunks in tens of MB |
+| Weighted score fusion (α·dense + (1−α)·BM25) | Rejected — needs score normalization and a tuned α; RRF is rank-based and already used here (ADR-009) |
+| RRF of dense and BM25 rankings inside the `search_fn` | Chosen — composes with expansion and decomposition unchanged |
+| Reranker: `bge-reranker-base` (1.1 GB) vs `ms-marco-MiniLM-L-6-v2` (90 MB) | MiniLM chosen for CPU latency; bge-reranker left as an untested upgrade |
+
+### Decision
+
+- **Hybrid on by default** (`settings.hybrid_search = True`). Each `search_fn` call fuses the dense and BM25 top-n via RRF. Chunks only BM25 found get their `similarity` computed from their stored embedding in the collection's own metric, so the refusal and calibrated-pass thresholds keep their meaning.
+- **Reranker off by default** (`settings.rerank = False`), exposed via `fused_retrieve(rerank_fn=…)`. When enabled it reorders a 20-deep candidate pool and is skipped for comparison queries (one score over the whole question would undo ADR-010's per-side slot allocation).
+
+### Evidence (ablation, same rebuilt index, 25 in-corpus + 5 OOC queries)
+
+| Variant | Hit@5 | Recall@5 | MRR | nDCG@5 | OOC refusal | p50 |
+|---|---|---|---|---|---|---|
+| dense + Track B (previous default) | 0.840 | 0.663 | 0.630 | 0.664 | 4/5 | 51 ms |
+| **+ BM25 hybrid (new default)** | **0.960** | **0.710** | 0.621 | 0.698 | **5/5** | 64 ms |
+| + rerank, no BM25 | 0.920 | 0.657 | 0.685 | 0.723 | 4/5 | 520 ms |
+| + BM25 hybrid + rerank | 0.920 | 0.677 | **0.727** | **0.762** | 4/5 | 527 ms |
+
+Hybrid fixes four queries (beam management, dual connectivity, X2, SSB) and loses one (NG-RAN logical nodes). The reranker gives the best ordering but drops three of hybrid's recall gains. It's an MS MARCO web-search model with no telecom vocabulary.
+
+### Tradeoff accepted
+
+- **Recall over ordering.** The generator reads all top-5 chunks, so getting the right evidence into the top 5 matters more than its rank. MRR dips 0.009 with hybrid.
+- **N = 25.** One query moves hit-rate by 0.04. The hybrid gain is 4 fixed vs 1 broken: directional, not statistically established.
+- **Cold start.** The BM25 index is built in-process on first hybrid query (seconds, then cached per collection count).
+- **Cloud path not yet hybrid.** `streamlit_app.py` still runs dense-only. `bm25.py` is stdlib-only so it can be wired in, but that path has no eval harness (ADR-011 caveat).
+
+### Outcome
+
+M9's Recall@5 ≥ 0.80 target is still not met (0.710). Remaining levers: a telecom-aware or larger reranker (bge-reranker-base), the bge-base rebuild (ADR-003), and graded-relevance label review. The rebuilt index uses the latest spec versions (44,133 chunks vs 43,121), and the previous default scores lower on it than on the old index. The regression baseline was therefore re-saved on the rebuilt index with the hybrid default (2026-11-20: hit-rate@5 0.96, Recall@5 0.71, MRR 0.621, nDCG@5 0.698). It reproduced exactly on a second run, and the gate is green.
+
+---

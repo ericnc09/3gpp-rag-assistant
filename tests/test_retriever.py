@@ -198,3 +198,105 @@ class TestFormatContext:
     def test_empty_list_returns_empty_string(self, retriever):
         ctx = retriever.format_context([])
         assert ctx == ""
+
+
+# ---------------------------------------------------------------------------
+# Hybrid (dense + BM25) and rerank wiring (ADR-012)
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def hybrid_retriever(mock_vector_store, mock_embedding_generator):
+    """Retriever over a mocked store whose collection backs a real BM25 index."""
+    from unittest.mock import MagicMock
+    from src.core import bm25
+    from src.core.retriever import DocumentRetriever
+
+    bm25.clear_cache()
+    mock_vector_store.query.return_value = {
+        "ids": [["id_0", "id_1"]],
+        "documents": [["chunk about gNB", "chunk about F1"]],
+        "metadatas": [[
+            {"source": "38300-g30.docx", "chunk_index": 0},
+            {"source": "38401-g30.docx", "chunk_index": 1},
+        ]],
+        "distances": [[0.08, 0.13]],
+    }
+    coll = MagicMock()
+    coll.name = "3gpp_specs"
+    coll.count.return_value = 3
+    coll.metadata = {}
+    coll.get.side_effect = lambda **kw: (
+        {"ids": ["id_2"], "embeddings": [[0.0] * 384]}
+        if "ids" in kw else
+        {
+            "ids": ["id_0", "id_1", "id_2"],
+            "documents": ["chunk about gNB", "chunk about F1",
+                          "T310 timer is started on radio link problems"],
+            "metadatas": [
+                {"source": "38300-g30.docx", "chunk_index": 0},
+                {"source": "38401-g30.docx", "chunk_index": 1},
+                {"source": "38331-g30.docx", "chunk_index": 7},
+            ],
+        }
+    )
+    mock_vector_store.collection = coll
+    return DocumentRetriever(
+        vector_store=mock_vector_store,
+        embedding_generator=mock_embedding_generator,
+        top_k=5, hybrid=True, rerank=False, expand=False, decompose=False,
+    )
+
+
+class TestHybridRetrieve:
+    def test_keyword_only_hit_is_fused_in(self, hybrid_retriever):
+        docs = hybrid_retriever.retrieve("When is T310 started?")
+        assert "38331-g30.docx" in [d["source"] for d in docs]
+
+    def test_keyword_only_hit_gets_embedding_similarity(self, hybrid_retriever,
+                                                        mock_embedding):
+        docs = hybrid_retriever.retrieve("When is T310 started?")
+        t310 = next(d for d in docs if d["source"] == "38331-g30.docx")
+        # squared-L2 similarity against a zero vector: 1 - |q|^2
+        expected = 1 - sum(x * x for x in mock_embedding)
+        assert t310["similarity"] == pytest.approx(expected)
+
+    def test_dense_hits_keep_store_similarity(self, hybrid_retriever):
+        docs = hybrid_retriever.retrieve("When is T310 started?")
+        gnb = next(d for d in docs if d["source"] == "38300-g30.docx")
+        assert gnb["similarity"] == pytest.approx(0.92)
+
+    def test_no_duplicate_chunks(self, hybrid_retriever):
+        docs = hybrid_retriever.retrieve("gNB F1 T310")
+        keys = [(d["source"], d["chunk_index"]) for d in docs]
+        assert len(keys) == len(set(keys))
+
+    def test_hybrid_off_never_touches_bm25(self, retriever, mock_vector_store):
+        from unittest.mock import patch
+        with patch("src.core.bm25.get_index_for_collection") as get_idx:
+            retriever.retrieve("anything")
+        get_idx.assert_not_called()
+
+
+class TestRerankWiring:
+    def test_rerank_flag_routes_through_reranker(self, mock_vector_store,
+                                                 mock_embedding_generator):
+        from src.core.retriever import DocumentRetriever
+        r = DocumentRetriever(vector_store=mock_vector_store,
+                              embedding_generator=mock_embedding_generator,
+                              top_k=2, rerank=True, expand=False, decompose=False)
+        r._reranker = lambda q, docs: list(reversed(docs))
+        docs = r.retrieve("query")
+        assert docs[0]["source"] == "38401-g30.docx"
+
+    def test_overrides_beat_settings(self, mock_vector_store, mock_embedding_generator,
+                                     monkeypatch):
+        from src.core import retriever as retriever_module
+        monkeypatch.setattr(retriever_module.settings, "hybrid_search", True)
+        r = retriever_module.DocumentRetriever(
+            vector_store=mock_vector_store,
+            embedding_generator=mock_embedding_generator, hybrid=False)
+        assert r.hybrid is False
+        r2 = retriever_module.DocumentRetriever(
+            vector_store=mock_vector_store,
+            embedding_generator=mock_embedding_generator)
+        assert r2.hybrid is True

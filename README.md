@@ -366,7 +366,7 @@ Milestones are defined by outcome and success criteria, not sprint dates. Full m
 | M6: Multi-document reasoning across spec boundaries | Planned | Cross-spec golden-set pass rate ≥ single-spec baseline |
 | M7: Hosted team version with auth + shared sessions | Planned | Auth, per-user history, distributed rate limiting |
 | M8: Eval-gated CI | Planned | A regression in retrieval quality fails CI automatically |
-| M9: Retrieval quality v2 — Phase 2, Track B | In progress | Hit-rate@5 0.96, Recall@5 0.737 (from 0.88 / 0.64) via calibrated threshold, expansion fusion, comparison decomposition; remaining: bge-base rebuild + graded labels to reach recall ≥ 0.80 |
+| M9: Retrieval quality v2 — Phase 2, Track B | In progress | Track B: hit-rate@5 0.96, Recall@5 0.737 (from 0.88 / 0.64). Sprint 1 (ADR-012): BM25 hybrid default — on the rebuilt 44k-chunk index Recall@5 0.663 → 0.710, hit-rate@5 0.84 → 0.96; cross-encoder rerank available (best MRR/nDCG, off by default). Remaining: recall ≥ 0.80 via stronger reranker / bge-base / graded labels |
 | M10: Release intelligence — Phase 2, Track C | Planned | Version-aware index; release-delta answers citing Change Requests |
 | M11: Second corpus validated — Phase 2, Track D | Planned | NIST SP 800-53 indexed and queryable through CorpusConfig |
 

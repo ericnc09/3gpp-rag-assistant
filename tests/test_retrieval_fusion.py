@@ -177,3 +177,67 @@ class TestFusedRetrieve:
         out = fused_retrieve("q", backend.search_fn, k=5,
                              expand=False, decompose=False)
         assert len(out) <= 5
+
+
+# ---------------------------------------------------------------------------
+# fused_retrieve — reranking stage (ADR-012)
+# ---------------------------------------------------------------------------
+
+def _reverse_rerank(query, docs):
+    """Fake reranker: reverses the pool and tags each doc."""
+    return [{**d, "rerank_score": float(i)} for i, d in enumerate(reversed(docs))]
+
+
+class TestFusedRetrieveRerank:
+    def test_rerank_fetches_deeper_pool(self):
+        backend = FakeBackend({"q": [_doc(f"s{i}.docx", i) for i in range(30)]})
+        fused_retrieve("q", backend.search_fn, k=5, expand=False, decompose=False,
+                       rerank_fn=_reverse_rerank, rerank_depth=20)
+        assert backend.calls == [("q", 20)]
+
+    def test_rerank_reorders_plain_query(self):
+        backend = FakeBackend({"q": [_doc(f"s{i}.docx", i) for i in range(30)]})
+        out = fused_retrieve("q", backend.search_fn, k=3, expand=False, decompose=False,
+                             rerank_fn=_reverse_rerank, rerank_depth=10)
+        # Pool is s0..s9; reversed → s9 first. A doc outside the original
+        # top-k has been promoted into it.
+        assert [d["source"] for d in out] == ["s9.docx", "s8.docx", "s7.docx"]
+
+    def test_rerank_receives_raw_user_query(self):
+        seen = []
+
+        def spy(query, docs):
+            seen.append(query)
+            return docs
+
+        backend = FakeBackend({"SDAP": [_doc("38300.docx", 0)]})
+        fused_retrieve("What is SDAP?", backend.search_fn, k=5, expand=True,
+                       decompose=False, rerank_fn=spy)
+        assert seen == ["What is SDAP?"]
+
+    def test_rerank_applies_source_cap_on_fused_path(self):
+        pool = [_doc("dominant.docx", i) for i in range(10)] + [
+            _doc(f"other{i}.docx", 0) for i in range(3)]
+        backend = FakeBackend({"SDAP": pool})
+        out = fused_retrieve("What is SDAP?", backend.search_fn, k=5, expand=True,
+                             decompose=False, rerank_fn=lambda q, d: d)
+        assert sum(1 for d in out if d["source"] == "dominant.docx") <= 3
+        assert sum(1 for d in out if d["source"].startswith("other")) == 2
+
+    def test_comparison_queries_are_not_reranked(self):
+        called = []
+        backend = FakeBackend({
+            "NR physical layer": [_doc("38211.docx", 0)],
+            "LTE physical layer": [_doc("36211.docx", 0)],
+        })
+        fused_retrieve(
+            "What are the differences between NR and LTE physical layer?",
+            backend.search_fn, k=5, expand=False, decompose=True,
+            rerank_fn=lambda q, d: called.append(q) or d,
+        )
+        assert called == []
+
+    def test_no_rerank_keeps_original_depth(self):
+        backend = FakeBackend({"q": [_doc("a.docx", i) for i in range(30)]})
+        fused_retrieve("q", backend.search_fn, k=5, expand=False, decompose=False)
+        assert backend.calls == [("q", 5)]
