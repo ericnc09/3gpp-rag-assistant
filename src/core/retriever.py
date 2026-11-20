@@ -286,9 +286,12 @@ class DocumentRetriever:
         collection = self.vector_store.collection
         got = collection.get(ids=ids, include=["embeddings"])
         space = (getattr(collection, "metadata", None) or {}).get("hnsw:space", "l2")
-        q = list(query_embedding)
+        # ChromaDB returns numpy arrays; work in plain floats so similarities
+        # (and every bool derived from them) stay JSON-serialisable.
+        q = [float(x) for x in query_embedding]
         sims: Dict[str, float] = {}
         for chunk_id, emb in zip(got["ids"], got["embeddings"]):
+            emb = [float(x) for x in emb]
             dot = sum(a * b for a, b in zip(q, emb))
             if space == "cosine":
                 qn = sum(a * a for a in q) ** 0.5
@@ -298,7 +301,7 @@ class DocumentRetriever:
                 distance = 1 - dot
             else:  # ChromaDB "l2" reports squared Euclidean distance
                 distance = sum((a - b) ** 2 for a, b in zip(q, emb))
-            sims[chunk_id] = 1 - distance
+            sims[chunk_id] = float(1 - distance)
         return sims
 
     @staticmethod
@@ -308,7 +311,7 @@ class DocumentRetriever:
             "text": text,
             "source": metadata.get("source", "unknown"),
             "chunk_index": metadata.get("chunk_index", 0),
-            "similarity": similarity,
+            "similarity": float(similarity),
             "domain": metadata.get("domain", "unknown"),
             "generation": metadata.get("generation", "unknown"),
             "spec_number": metadata.get("spec_number", "unknown"),

@@ -300,3 +300,19 @@ class TestRerankWiring:
             vector_store=mock_vector_store,
             embedding_generator=mock_embedding_generator)
         assert r2.hybrid is True
+
+
+def test_keyword_only_similarity_is_plain_float(hybrid_retriever):
+    """ChromaDB returns numpy embeddings; similarity must still be a Python
+    float so eval results serialise (numpy.bool_ broke json.dump)."""
+    import numpy as np
+
+    coll = hybrid_retriever.vector_store.collection
+    original = coll.get.side_effect
+    coll.get.side_effect = lambda **kw: (
+        {"ids": ["id_2"], "embeddings": [np.zeros(384, dtype=np.float32)]}
+        if "ids" in kw else original(**kw)
+    )
+    docs = hybrid_retriever.retrieve("When is T310 started?")
+    for d in docs:
+        assert type(d["similarity"]) is float
