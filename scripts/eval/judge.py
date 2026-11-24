@@ -117,13 +117,18 @@ def _call_ollama(prompt: str, model: str, base_url: str) -> str:
         "model": model,
         "prompt": prompt,
         "stream": False,
+        # Deterministic, JSON-constrained output; num_ctx sized for five
+        # full 1000-char chunks plus a full answer (Ollama's default window
+        # would silently truncate the context the judge is grading against).
+        "format": "json",
+        "options": {"temperature": 0, "num_ctx": 8192},
     }).encode()
     req = urllib.request.Request(
         f"{base_url}/api/generate",
         data=payload,
         headers={"Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(req, timeout=60) as resp:
+    with urllib.request.urlopen(req, timeout=300) as resp:
         data = json.loads(resp.read())
     return data.get("response", "").strip()
 
@@ -231,7 +236,10 @@ class LLMJudge:
         """
         prompt = JUDGE_PROMPT_TEMPLATE.format(
             question=question,
-            context=context[:3000],   # cap to avoid token overrun
+            # Five full chunks (~5,500 chars with headers) fit; the cap only
+            # guards against pathological inputs. It was 3000, which cut the
+            # last chunks out of the judge's view.
+            context=context[:8000],
             answer=answer,
         )
         if self.provider == "groq":

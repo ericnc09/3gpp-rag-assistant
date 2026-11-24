@@ -374,11 +374,42 @@ def render_sources(sources: list):
             )
 
 
+def render_grounding(grounding):
+    """Grounding meter: share of answer sentences backed by a retrieved chunk.
+
+    A similarity check, not a fact check (ADR-013): it flags sentences for
+    the reader to verify against the sources; it cannot prove them true.
+    """
+    if not grounding or not grounding.get("n_claims"):
+        return
+    n = grounding["n_claims"]
+    ratio = grounding.get("grounded_ratio") or 0.0
+    grounded = round(ratio * n)
+    coverage = grounding.get("citation_coverage") or 0.0
+    st.progress(
+        min(max(ratio, 0.0), 1.0),
+        text=f"Grounding: {grounded}/{n} sentences match a retrieved source · "
+             f"{coverage:.0%} cited",
+    )
+    flagged = [c for c in grounding.get("claims", []) if not c.get("grounded")]
+    miscited = [c for c in grounding.get("claims", [])
+                if c.get("grounded") and c.get("cited") and not c.get("supported")]
+    if grounding.get("invalid_citations"):
+        st.caption(f"⚠️ {grounding['invalid_citations']} citation(s) point to no retrieved source.")
+    if flagged or miscited:
+        with st.expander(f"🔎 Check these sentences ({len(flagged) + len(miscited)})"):
+            for c in flagged:
+                st.markdown(f"- **Not found in sources:** {html.escape(c['text'])}")
+            for c in miscited:
+                st.markdown(f"- **Cited source doesn't match:** {html.escape(c['text'])}")
+
+
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
         if msg["role"] == "assistant":
             render_sources(msg.get("sources", []))
+            render_grounding(msg.get("grounding"))
             if msg.get("timing"):
                 t = msg["timing"]
                 st.markdown(
@@ -418,6 +449,7 @@ if question:
             sources = []
             full_answer = []
             timing = {}
+            grounding = None
 
             try:
                 for chunk in stream_query(question, source_filter, top_k):
@@ -427,6 +459,8 @@ if question:
                     elif chunk["type"] == "token":
                         full_answer.append(chunk["token"])
                         token_placeholder.markdown("".join(full_answer) + "▌")
+                    elif chunk["type"] == "grounding":
+                        grounding = chunk.get("grounding")
                     elif chunk["type"] == "done":
                         token_placeholder.markdown("".join(full_answer))
                         timing = {
@@ -463,6 +497,7 @@ if question:
 
             answer = result["answer"]
             sources = result.get("sources", [])
+            grounding = result.get("grounding")
             timing = {
                 "query_time": result["query_time"],
                 "retrieve_time": result["retrieve_time"],
@@ -472,6 +507,7 @@ if question:
             st.markdown(answer)
 
         render_sources(sources)
+        render_grounding(grounding)
         st.markdown(
             f'<div class="timing-bar">⏱ total={timing.get("query_time", 0):.2f}s</div>',
             unsafe_allow_html=True,
@@ -483,6 +519,7 @@ if question:
         "content": answer,
         "sources": sources,
         "timing": timing,
+        "grounding": grounding,
     })
 
 # ---------------------------------------------------------------------------

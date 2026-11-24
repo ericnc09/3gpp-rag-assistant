@@ -103,7 +103,9 @@ class LocalEmbeddingGenerator:
         embedding = self.model.encode(text, convert_to_numpy=True)
         return embedding.tolist()
     
-    def generate_embeddings_batch(self, texts: List[str]) -> List[List[float]]:
+    def generate_embeddings_batch(
+        self, texts: List[str], show_progress_bar: bool = True
+    ) -> List[List[float]]:
         """
         Generate embeddings for multiple texts in batch
         
@@ -119,7 +121,7 @@ class LocalEmbeddingGenerator:
             texts,
             batch_size=self.batch_size,
             convert_to_numpy=True,
-            show_progress_bar=True
+            show_progress_bar=show_progress_bar,
         )
         
         return embeddings.tolist()
@@ -146,7 +148,7 @@ class LocalEmbeddingGenerator:
             texts,
             batch_size=self.batch_size,
             convert_to_numpy=True,
-            show_progress_bar=True
+            show_progress_bar=True,
         )
         
         # Add embeddings to chunks

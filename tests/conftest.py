@@ -161,3 +161,5 @@ def _dense_only_by_default(monkeypatch):
     from src.config import settings
     monkeypatch.setattr(settings, "hybrid_search", False)
     monkeypatch.setattr(settings, "rerank", False)
+    # Grounding needs real vectors; tested explicitly in test_grounding.py.
+    monkeypatch.setattr(settings, "grounding_check", False)

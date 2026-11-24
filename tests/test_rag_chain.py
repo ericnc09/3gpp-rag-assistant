@@ -164,3 +164,47 @@ class TestRAGChainStream:
         chunks = list(chain.stream_query("nothing"))
         types = [c["type"] for c in chunks]
         assert types == ["sources", "token", "done"]
+
+
+# ---------------------------------------------------------------------------
+# Claim-level grounding (ADR-013)
+# ---------------------------------------------------------------------------
+
+class TestRAGChainGrounding:
+    def _chain(self, mock_llm, answer, grounding=True):
+        from unittest.mock import MagicMock
+        from src.core.rag_chain import RAGChain
+
+        retriever = MagicMock()
+        retriever.retrieve.return_value = [
+            {"text": "The AMF performs registration management for the UE.",
+             "source": "23501.docx", "similarity": 0.8},
+        ]
+        retriever.format_context.return_value = "[Document 1] ..."
+        retriever.embedding_generator.generate_embedding.side_effect = (
+            lambda t: [float(len(t) % 7), 1.0, 0.5])
+        retriever.embedding_generator.generate_embeddings_batch.side_effect = (
+            lambda texts, show_progress_bar=True: [[float(len(t) % 7), 1.0, 0.5] for t in texts])
+        mock_llm.generate.return_value = answer
+        return RAGChain(retriever=retriever, llm=mock_llm, grounding=grounding)
+
+    def test_query_includes_grounding_report(self, mock_llm):
+        chain = self._chain(mock_llm, "The AMF performs registration management for the UE [D1].")
+        result = chain.query("What does the AMF do?")
+        assert result["grounding"]["n_claims"] == 1
+        assert result["grounding"]["citation_coverage"] == 1.0
+
+    def test_grounding_disabled(self, mock_llm):
+        chain = self._chain(mock_llm, "The AMF performs registration [D1].", grounding=False)
+        assert "grounding" not in chain.query("What does the AMF do?")
+
+    def test_grounding_failure_never_loses_answer(self, mock_llm):
+        chain = self._chain(mock_llm, "The AMF performs registration management [D1].")
+        chain.grounding_checker.check = lambda *a: (_ for _ in ()).throw(RuntimeError("boom"))
+        result = chain.query("What does the AMF do?")
+        assert result["answer"].startswith("The AMF")
+        assert "grounding" not in result
+
+    def test_prompt_asks_for_dn_citations(self):
+        from src.core.rag_chain import PROMPT_TEMPLATE
+        assert "[D1]" in PROMPT_TEMPLATE and "[17]" in PROMPT_TEMPLATE

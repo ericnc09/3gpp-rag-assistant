@@ -1,0 +1,1629 @@
+{
+  "summary": {
+    "claims": 155,
+    "skipped_claims": 2,
+    "judge_model": "gemma3:4b",
+    "thresholds": {
+      "support": 0.75,
+      "lexical": 0.7
+    },
+    "accuracy": 0.768,
+    "cohen_kappa": 0.215,
+    "confusion": {
+      "checker_yes_llm_yes": 110,
+      "checker_yes_llm_no": 8,
+      "checker_no_llm_yes": 28,
+      "checker_no_llm_no": 9
+    },
+    "llm_supported_rate": 0.89,
+    "checker_supported_rate": 0.761,
+    "in_sample_best_support_threshold": {
+      "threshold": 0.94,
+      "balanced_accuracy": 0.757
+    },
+    "excluded_meta_claims": 5,
+    "note": "recomputed after widening the hedge filter; in_sample_best_support_threshold is from the pre-filter run"
+  },
+  "claims": [
+    {
+      "case": "gs-001",
+      "claim": "According to the provided context, a gNB (gNB Central Unit) is a logical node hosting RRC, SDAP and PDCP protocols of the gNB or RRC and PDCP protocols of the en-gNB that controls the operation of one or more gNB-DUs.",
+      "cited": true,
+      "support": 0.951,
+      "lexical": 0.857,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The sentence accurately describes the gNB-CU's function and protocols as defined in the passages."
+    },
+    {
+      "case": "gs-002",
+      "claim": "The F1 interface between gNB-CU and gNB-DU is a logical interface that enables the transfer of RRC signalling messages between the two nodes, as well as the establishment, maintenance, and release of RLC channels for Uu Relay RLC channels and PC5 Relay RLC channels.",
+      "cited": true,
+      "support": 0.846,
+      "lexical": 0.708,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage details the F1 interface's role in RRC signalling transfer, RLC channel establishment/maintenance/release (Uu Relay and PC5 Relay), and mentions the gNB-CU and gNB-DU nodes."
+    },
+    {
+      "case": "gs-002",
+      "claim": "The F1 interface is used for the transfer of information associated with an F1-C interface instance, and it is used to establish, maintain, and release the F1-C interface instance.",
+      "cited": true,
+      "support": 0.727,
+      "lexical": 0.7,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passages detail the use of F1 messages (F1 SETUP REQUEST, F1 SETUP RESPONSE, F1 SETUP FAILURE, and GNB-DU CONFIGURATION UPDATE) for transferring information related to F1-C interface instances, which aligns with the sentence's description of establishing, maintaining, and releasing the F1-C interface instance."
+    },
+    {
+      "case": "gs-002",
+      "claim": "The F1 interface is also used for the transfer of updated information associated with an F1-C interface instance, such as configuration data.",
+      "cited": true,
+      "support": 0.728,
+      "lexical": 0.75,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states the exchange of application level configuration data between gNB-DU and gNB-CU via the F1 interface, which is directly related to the F1-C interface instance."
+    },
+    {
+      "case": "gs-002",
+      "claim": "The F1 interface is a non-UE associated signalling procedure, and it is used to erase any existing application level configuration data in the two nodes and replace it by the one received.",
+      "cited": true,
+      "support": 0.875,
+      "lexical": 0.9,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states 'This procedure uses non-UE associated signalling' and 'This procedure erases any existing application level configuration data in the two nodes and replaces it by the one received'."
+    },
+    {
+      "case": "gs-002",
+      "claim": "The F1 interface is also used for the transfer of error indication and reset functions between the gNB-CU and gNB-DU.",
+      "cited": true,
+      "support": 0.757,
+      "lexical": 0.769,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "Passages detail messages (ERROR INDICATION, F1 SETUP FAILURE, GNB-DU CONFIGURATION UPDATE) sent between gNB-CU and gNB-DU via the F1 interface, indicating error indication and reset functions."
+    },
+    {
+      "case": "gs-002",
+      "claim": "It is not specified in the provided context whether the F1 interface is a unidirectional or bidirectional interface, and whether it is used for the transfer of signalling messages between the gNB-CU and gNB-DU in both directions.",
+      "cited": true,
+      "support": 0.736,
+      "lexical": 0.474,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passages detail numerous messages exchanged via the F1 interface between gNB-DU and gNB-CU, indicating bidirectional communication."
+    },
+    {
+      "case": "gs-003",
+      "claim": "The E1 interface is used for the connection between ng-eNB-CU and ng-eNB-DU in the 5G NG-RAN architecture, as specified in clause 8.1 of TS 38.401.",
+      "cited": true,
+      "support": 0.822,
+      "lexical": 0.667,
+      "checker": true,
+      "llm": false,
+      "llm_reason": "The passage does not mention an 'E1' interface. It refers to W1 and F1 interfaces instead."
+    },
+    {
+      "case": "gs-004",
+      "claim": "The NG-RAN logical nodes and their functions are defined as part of the RNL (Radio Network Layer) of the NG-RAN architecture, which consists of a set of gNBs (gNBs) and ng-eNBs (ng-eNBs) connected to the 5GC through the NG interface, as specified in TS 38.300.",
+      "cited": false,
+      "support": 0.958,
+      "lexical": 0.96,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'The NG-RAN architecture, i.e. the NG-RAN logical nodes and interfaces between them, are defined as part of the RNL. The NG-RAN architecture consists of a set of gNBs and ng-eNBs which are connected to the 5GC through the NG interface and is specified in TS 38.300.'"
+    },
+    {
+      "case": "gs-004",
+      "claim": "The specific functions of the NG-RAN logical nodes are not explicitly stated in the provided context excerpts.",
+      "cited": false,
+      "support": 0.741,
+      "lexical": 0.308,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The excerpts detail the functions of the Xn interface, gNBs, ng-eNBs, and the overall architecture of the NG-RAN, including its logical separation from the 5GC and transport functions. While not a comprehensive list of *all* logical node functions, it does provide substantial information about their roles and capabilities."
+    },
+    {
+      "case": "gs-004",
+      "claim": "However, the functions of the NG-RAN are described in other clauses of TS 38.401, such as clause 7, which lists the NG-RAN functions description, including NG-RAN sharing, Remote Interference Management, Cross-Link Interference Management, Support for Non-Public Networks, RACH Optimisation Function, Positioning, Support for NR MBS, and PCI Optimisation Function, among others.",
+      "cited": false,
+      "support": 0.776,
+      "lexical": 0.676,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that clause 7 of TS 38.401 lists the NG-RAN functions, including the items mentioned in the sentence."
+    },
+    {
+      "case": "gs-004",
+      "claim": "Therefore, the NG-RAN logical nodes and their functions are not explicitly stated in the provided context excerpts, but can be inferred from other clauses of TS 38.401.",
+      "cited": false,
+      "support": 0.699,
+      "lexical": 0.222,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passage explicitly states 'The NG-RAN architecture, i.e. the NG-RAN logical nodes and interfaces between them, are defined as part of the RNL.' and references TS 38.300, indicating the ability to infer details."
+    },
+    {
+      "case": "gs-005",
+      "claim": "Handover in NR is initiated by the RAN using another RAT, which sends the RRCReconfiguration message via the radio access technology from which the inter-RAT handover is performed.",
+      "cited": true,
+      "support": 0.892,
+      "lexical": 0.882,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that the RAN using another RAT initiates the handover and sends the RRCReconfiguration message via the radio access technology from which the inter-RAT handover is performed."
+    },
+    {
+      "case": "gs-005",
+      "claim": "The network applies the procedure as follows: to activate ciphering, possibly using NULL algorithm, if not yet activated in the other RAT; to re-establish SRBs and one or more DRBs.",
+      "cited": true,
+      "support": 0.987,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly details the steps the network takes: activating ciphering (potentially with NULL), re-establishing SRBs, and DRBs."
+    },
+    {
+      "case": "gs-005",
+      "claim": "The UE shall apply the default L1 parameter values as specified in corresponding physical layer specifications except for the parameters for which values are provided in SIB1.",
+      "cited": true,
+      "support": 0.782,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that the UE shall apply default L1 parameters as specified in physical layer specifications, with an exception for parameters defined in SIB1."
+    },
+    {
+      "case": "gs-005",
+      "claim": "The UE shall also apply the default MAC Cell Group configuration as specified in 9.2.2.",
+      "cited": true,
+      "support": 0.839,
+      "lexical": 0.9,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: '1 apply the default MAC Cell Group configuration as specified in 9.2.2'."
+    },
+    {
+      "case": "gs-005",
+      "claim": "The RRC reconfiguration message from the target RAT is delivered to the source RAT via a transparent container, and is passed to the UE by the source RAT in the handover command.",
+      "cited": true,
+      "support": 0.878,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states this process: 'The RRC reconfiguration message from the target RAT is delivered to the source RAT via a transparent container, and is passed to the UE by the source RAT in the handover command.'"
+    },
+    {
+      "case": "gs-005",
+      "claim": "The inter-RAT handover command message carries the same type of information required to access the target cell as specified for NR baseline handover in clause 9.2.3.2.1.",
+      "cited": true,
+      "support": 0.848,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The sentence is directly stated in passage - 'The inter-RAT handover command message carries the same type of information required to access the target cell as specified for NR baseline handover in clause 9.2.3.2.1.'"
+    },
+    {
+      "case": "gs-005",
+      "claim": "The in-sequence and lossless handover is supported for the handover between gNB and ng-eNB.",
+      "cited": true,
+      "support": 0.859,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: \"- The in-sequence and lossless handover is supported for the handover between gNB and ng-eNB.\"} "
+    },
+    {
+      "case": "gs-005",
+      "claim": "The UE does not have specific procedures for handling handover in NR, as the procedures are specified in the other RAT.",
+      "cited": true,
+      "support": 0.683,
+      "lexical": 0.7,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage states the RAN (which includes the UE) initiates the handover to NR procedure in accordance with the specifications of the other RAT, implying the UE relies on those procedures rather than having its own specific ones."
+    },
+    {
+      "case": "gs-006",
+      "claim": "The Xn interface between gNBs is used to interconnect gNBs with each other, as well as to provide a point-to-point logical interface between two NG-RAN nodes, even in the absence of a physical direct connection between them.",
+      "cited": true,
+      "support": 0.87,
+      "lexical": 0.682,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that the Xn interface is a point-to-point logical interface between two NG-RAN nodes, even without a physical connection, and describes its use for interconnecting gNBs."
+    },
+    {
+      "case": "gs-006",
+      "claim": "This interface supports the exchange of signalling information between two NG-RAN nodes, and the forwarding of PDUs to the respective tunnel endpoints.",
+      "cited": true,
+      "support": 0.829,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that the Xn interface supports the exchange of signalling information and forwarding of PDUs to tunnel endpoints."
+    },
+    {
+      "case": "gs-006",
+      "claim": "The Xn interface is open, and it supports the exchange of signalling information between two NG-RAN nodes, and the forwarding of PDUs to the respective tunnel endpoints.",
+      "cited": true,
+      "support": 0.866,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states these three points about the Xn interface."
+    },
+    {
+      "case": "gs-006",
+      "claim": "The Xn interface is used for procedures to support dual connectivity between NG-RAN nodes.",
+      "cited": true,
+      "support": 0.84,
+      "lexical": 0.6,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage states the Xn interface supports the exchange of signalling information between NG-RAN nodes and forwarding of PDUs, implying its use in dual connectivity procedures."
+    },
+    {
+      "case": "gs-006",
+      "claim": "The Xn interface is used for procedures to support intra-NG-RAN mobility.",
+      "cited": true,
+      "support": 0.836,
+      "lexical": 0.556,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage states the Xn interface supports the exchange of signalling information between NG-RAN nodes and forwarding of PDUs, implying support for mobility procedures."
+    },
+    {
+      "case": "gs-006",
+      "claim": "The Xn interface is used for separation of Xn interface Radio Network functionality and Transport Network functionality to facilitate introduction of future technology.",
+      "cited": true,
+      "support": 0.897,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'The Xn interface specifications facilitate the separation of Xn interface Radio Network functionality and Transport Network functionality to facilitate introduction of future technology.'"
+    },
+    {
+      "case": "gs-006",
+      "claim": "The Xn interface is used for inter-connection of NG-RAN nodes supplied by different manufacturers.",
+      "cited": true,
+      "support": 0.85,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'The Xn interface specifications facilitate the following: - inter-connection of NG-RAN nodes supplied by different manufacturers.'"
+    },
+    {
+      "case": "gs-006",
+      "claim": "The Xn interface is used for support of continuation between NG-RAN nodes of the NG interface.",
+      "cited": true,
+      "support": 0.89,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that the Xn interface specifications facilitate 'support of continuation between NG-RAN nodes of the NG-RAN services offered via the NG interface'."
+    },
+    {
+      "case": "gs-007",
+      "claim": "The difference between SA (Standalone) and NSA (Non-Standalone) 5G deployment options is primarily related to the network architecture and the way the user equipment (UE) interacts with the network.",
+      "cited": false,
+      "support": 0.745,
+      "lexical": 0.222,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passage details the differences between SA and NSA deployments, including how mobility restriction mechanisms are applied and the use of SIB21 and SIB26, which are key aspects of the network architecture and UE interaction."
+    },
+    {
+      "case": "gs-007",
+      "claim": "In an NSA deployment, the UE uses the same radio access technology (RAT) as the previous generation (4G) network, and the 5G network is built on top of the 4G network using a non-standalone architecture.",
+      "cited": false,
+      "support": 0.683,
+      "lexical": 0.238,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passage describes NSA deployment as '5GS support for Indirect Network Sharing deployment' and details how it utilizes existing mobility restriction mechanisms and leverages the 4G network."
+    },
+    {
+      "case": "gs-007",
+      "claim": "This means that the UE can seamlessly switch between the 4G and 5G networks, and the 5G network does not require a separate connection to the 5G core network.",
+      "cited": false,
+      "support": 0.655,
+      "lexical": 0.154,
+      "checker": false,
+      "llm": false,
+      "llm_reason": "The passage discusses 5G VN services, satellite coverage availability, and network sharing, but does not explicitly state or imply seamless switching between 4G and 5G networks or the absence of a separate 5G core network connection."
+    },
+    {
+      "case": "gs-007",
+      "claim": "In contrast, an SA deployment uses a standalone 5G architecture, where the UE connects directly to the 5G core network, and the 5G network is not built on top of the 4G network.",
+      "cited": false,
+      "support": 0.691,
+      "lexical": 0.188,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passage describes SA deployments as using a standalone 5G architecture where the UE connects directly to the 5G core network, and it does not mention any reliance on a 4G network."
+    },
+    {
+      "case": "gs-007",
+      "claim": "This means that the UE must be capable of supporting the 5G RAT, and the 5G network requires a separate connection to the 5G core network.",
+      "cited": false,
+      "support": 0.657,
+      "lexical": 0.167,
+      "checker": false,
+      "llm": false,
+      "llm_reason": "The passage discusses satellite coverage availability information, indirect network sharing, and 5G VN services, but does not mention a separate connection to the 5G core network or the 5G RAT."
+    },
+    {
+      "case": "gs-007",
+      "claim": "The key difference between SA and NSA deployment options is the level of network separation and the way the UE interacts with the network.",
+      "cited": false,
+      "support": 0.627,
+      "lexical": 0.25,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passages detail the differences between SA and NSA deployments, including concepts like mobility restriction mechanisms, indirect network sharing, and the role of the AMF, which directly relate to network separation and UE interaction."
+    },
+    {
+      "case": "gs-007",
+      "claim": "SA deployment provides a more secure and isolated environment, while NSA deployment provides a more seamless and backward-compatible experience.",
+      "cited": false,
+      "support": 0.533,
+      "lexical": 0.154,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passage discusses SA and NSA deployments, describing SA as providing a secure and isolated environment and NSA as providing a seamless and backward-compatible experience. This aligns with the provided definitions."
+    },
+    {
+      "case": "gs-007",
+      "claim": "[TS 22.261, TS 23.501], [TS 23.502]",
+      "cited": false,
+      "support": 0.694,
+      "lexical": 0.0,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passage references TS 22.261 and TS 23.502, indicating support for the sentence."
+    },
+    {
+      "case": "gs-008",
+      "claim": "The NR MAC protocol is specified in 3GPP TS 38.321.",
+      "cited": true,
+      "support": 0.805,
+      "lexical": 0.714,
+      "checker": true,
+      "llm": false,
+      "llm_reason": "The passage references 3GPP TS 38.322, 38.323, 38.331, 38.213, and 21.905, but not 38.321."
+    },
+    {
+      "case": "gs-008",
+      "claim": "Medium Access Control (MAC) protocol specification;",
+      "cited": true,
+      "support": 0.833,
+      "lexical": 0.667,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The first passage explicitly states: \"The present document specifies the NR MAC protocol.\""
+    },
+    {
+      "case": "gs-008",
+      "claim": "Mapping between a QoS flow and a data radio bearer;",
+      "cited": true,
+      "support": 0.758,
+      "lexical": 0.333,
+      "checker": true,
+      "llm": false,
+      "llm_reason": "The passage does not contain information about mapping between QoS flows and data radio bearers."
+    },
+    {
+      "case": "gs-008",
+      "claim": "Transfer of data (user plane or control plane);",
+      "cited": false,
+      "support": 0.724,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly lists the functions of the PDCP sublayer, including 'Transfer of data (user plane or control plane)'"
+    },
+    {
+      "case": "gs-008",
+      "claim": "Header compression and decompression using the ROHC protocol;",
+      "cited": false,
+      "support": 0.909,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that PDCP includes 'Header compression and decompression using the ROHC protocol'."
+    },
+    {
+      "case": "gs-008",
+      "claim": "Header compression and decompression using EHC protocol;",
+      "cited": false,
+      "support": 0.887,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states 'Header compression and decompression using EHC protocol' within the PDCP sublayer's functions."
+    },
+    {
+      "case": "gs-008",
+      "claim": "Integrity protection and integrity verification;",
+      "cited": false,
+      "support": 0.866,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly lists 'Integrity protection and integrity verification' as functions of the PDCP sublayer."
+    },
+    {
+      "case": "gs-009",
+      "claim": "The RRC protocol in NR is responsible for establishing and controlling RRC connections, which include paging, connection establishment, and security activation.",
+      "cited": true,
+      "support": 0.795,
+      "lexical": 0.538,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly details the RRC protocol's functions including RRC connection control (paging, establishment/modification/suspension/resumption/release, and security activation)."
+    },
+    {
+      "case": "gs-009",
+      "claim": "RRC connection establishment involves the establishment of SRB1, and the procedure is also used to transfer the initial NAS dedicated information from the UE to the network.",
+      "cited": true,
+      "support": 0.737,
+      "lexical": 0.643,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passage details RRC connection control functions, including establishment/modification/suspension/resumption/release of SRB1, and mentions initial security activation which implies transfer of NAS information."
+    },
+    {
+      "case": "gs-009",
+      "claim": "In NR sidelink communication/discovery, an RRC connection establishment is initiated only in the following cases: if configured by upper layers to transmit NR sidelink communication and related data is available for transmission, or if the frequency on which the UE is configured to transmit NR sidelink communication is included in sl-FreqInfoList/sl-FreqInfoListSizeExt.",
+      "cited": true,
+      "support": 0.926,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage directly states the conditions under which an RRC connection establishment is initiated for NR sidelink communication/discovery, matching the sentence verbatim."
+    },
+    {
+      "case": "gs-009",
+      "claim": "The RRC protocol also includes the broadcast of system information, including ETWS notification, CMAS notification, and positioning assistance data.",
+      "cited": true,
+      "support": 0.765,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states the RRC protocol includes broadcast of system information, and lists ETWS, CMAS, and positioning assistance data as examples within that function."
+    },
+    {
+      "case": "gs-010",
+      "claim": "QoS (Quality of Service) management in NG-RAN and 5GC involves a two-step mapping of IP-flows to QoS flows and from QoS flows to DRBs (Data Radio Bearers).",
+      "cited": true,
+      "support": 0.9,
+      "lexical": 0.7,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly describes a two-step mapping: IP-flows to QoS flows and QoS flows to DRBs, aligning with the sentence's statement."
+    },
+    {
+      "case": "gs-010",
+      "claim": "At the NAS (Non-Access Stratum) level, a QoS flow is characterized by a QoS profile provided by 5GC to NG-RAN and QoS rules provided by 5GC to the UE (User Equipment).",
+      "cited": true,
+      "support": 0.922,
+      "lexical": 0.842,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states this detail: 'At NAS level, a QoS flow is characterised by a QoS profile provided by 5GC to NG-RAN and QoS rule(s) provided by 5GC to the UE.'"
+    },
+    {
+      "case": "gs-010",
+      "claim": "The QoS profile is used by NG-RAN to determine the treatment on the radio interface, while the QoS rules dictate the mapping between uplink User Plane traffic and QoS flows to the UE.",
+      "cited": true,
+      "support": 0.897,
+      "lexical": 0.944,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states this relationship: 'The QoS profile is used by NG-RAN to determine the treatment on the radio interface while the QoS rules dictates the mapping between uplink User Plane traffic and QoS flows to the UE.'"
+    },
+    {
+      "case": "gs-010",
+      "claim": "The QoS flow may be either GBR (Guaranteed Bit Rate) or Non-GBR (Non-Guaranteed Bit Rate) depending on its profile.",
+      "cited": true,
+      "support": 0.853,
+      "lexical": 0.667,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'A QoS flow may either be GBR or Non-GBR depending on its profile.'"
+    },
+    {
+      "case": "gs-010",
+      "claim": "The QoS profile of a QoS flow contains QoS parameters, such as a 5G QoS Identifier (5QI) and an Allocation and Retention Priority (ARP).",
+      "cited": true,
+      "support": 0.98,
+      "lexical": 0.923,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that the QoS profile includes a 5G QoS Identifier (5QI) and an Allocation and Retention Priority (ARP)."
+    },
+    {
+      "case": "gs-010",
+      "claim": "In the QoS architecture in NG-RAN, packets belonging to different PDU (PDU Session) sessions are mapped to different DRBs.",
+      "cited": true,
+      "support": 0.907,
+      "lexical": 0.923,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'The NG-RAN maps packets belonging to different PDU sessions to different DRBs.'"
+    },
+    {
+      "case": "gs-010",
+      "claim": "NAS-level packet filters in the UE and in the 5GC associate UL (Uplink) and DL (Downlink) packets with QoS Flows.",
+      "cited": true,
+      "support": 0.907,
+      "lexical": 0.8,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'NAS level packet filters in the UE and in the 5GC associate UL and DL packets with QoS Flows'."
+    },
+    {
+      "case": "gs-010",
+      "claim": "AS-level mapping rules in the UE and in the NG-RAN associate UL and DL QoS Flows with DRBs.",
+      "cited": true,
+      "support": 0.909,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'AS-level mapping rules in the UE and in the NG-RAN associate UL and DL QoS Flows with DRBs.'"
+    },
+    {
+      "case": "gs-010",
+      "claim": "The 5G QoS Flow or QoS Flow is the finest granularity for QoS forwarding treatment in the 5G System, and all traffic mapped to the same 5G QoS Flow receives the same forwarding treatment.",
+      "cited": true,
+      "support": 0.983,
+      "lexical": 0.923,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that 5G QoS Flow is the finest granularity for QoS forwarding and describes how traffic mapped to it receives the same treatment."
+    },
+    {
+      "case": "gs-011",
+      "claim": "The 5G NR physical layer channel structure is composed of several types of channels, including physical downlink shared channels, physical uplink shared channels, physical downlink control channels, and physical uplink control channels.",
+      "cited": false,
+      "support": 0.813,
+      "lexical": 0.467,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly lists 'physical downlink shared channels', 'physical uplink shared channels', 'physical downlink control channels', and 'physical uplink control channels' as components of the 5G NR physical layer channel structure."
+    },
+    {
+      "case": "gs-011",
+      "claim": "Physical downlink shared channels are used for downlink transmission and are divided into several sub-channels, including the physical downlink control channel (PDCCH) and the physical downlink shared channel (PDSCH).",
+      "cited": true,
+      "support": 0.751,
+      "lexical": 0.5,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passages detail the PDSCH and PDCCH as sub-channels within the downlink transmission scheme and related physical layer procedures."
+    },
+    {
+      "case": "gs-011",
+      "claim": "Physical uplink shared channels are used for uplink transmission and are also divided into several sub-channels, including the physical uplink control channel (PUCCH) and the physical uplink shared channel (PUSCH).",
+      "cited": true,
+      "support": 0.737,
+      "lexical": 0.467,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passages detail sections on 'Physical-layer processing for physical uplink shared channel' (53), 'Physical uplink control channel' (53), and 'HARQ' (55), explicitly listing PUCCH and PUSCH."
+    },
+    {
+      "case": "gs-011",
+      "claim": "Physical downlink control channels (PDCCH) are used for control information transmission, such as channel allocation and scheduling.",
+      "cited": true,
+      "support": 0.731,
+      "lexical": 0.545,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passages detail sections related to PDCCH (5.2.3, 10.2.1.1) and its functions including scrambling, modulation, layer mapping, and precoding, which align with the description of control information transmission."
+    },
+    {
+      "case": "gs-011",
+      "claim": "Physical uplink control channels (PUCCH) are used for control information transmission, such as channel allocation and scheduling.",
+      "cited": true,
+      "support": 0.721,
+      "lexical": 0.545,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passages detail physical uplink control channels (PUCCH) and their procedures, including HARQ and power control, which are relevant to channel allocation and scheduling."
+    },
+    {
+      "case": "gs-011",
+      "claim": "Physical downlink shared channels (PDSCH) and physical uplink shared channels (PUSCH) are used for data transmission.",
+      "cited": true,
+      "support": 0.75,
+      "lexical": 0.667,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passages detail sections 5.2.1, 5.2.2, 5.2.3, 5.2.4, 5.2.5, 5.2.6, 5.3.1, 5.3.2, 5.3.3, 5.3.4, 5.3.5, 5.3.6, 5.4.1, 5.4.2, 5.4.3, referring to PDSCH and PUSCH."
+    },
+    {
+      "case": "gs-011",
+      "claim": "The physical layer procedures for control operations, including link adaptation, power control, cell search, HARQ, and reception of SIB1, are described in TS 38.300.",
+      "cited": true,
+      "support": 0.757,
+      "lexical": 0.706,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passages detail numerous physical layer procedures, including link adaptation, power control, cell search, HARQ, and reception of SIB1, which are relevant to control operations."
+    },
+    {
+      "case": "gs-011",
+      "claim": "The physical layer procedures for data transmission, including link adaptation, power control, and HARQ, are described in TS 38.214.",
+      "cited": true,
+      "support": 0.775,
+      "lexical": 0.643,
+      "checker": true,
+      "llm": false,
+      "llm_reason": "The passage does not mention TS 38.214."
+    },
+    {
+      "case": "gs-011",
+      "claim": "The physical layer measurements, including reference signals and measurements for positioning, are described in TS 38.215.",
+      "cited": true,
+      "support": 0.672,
+      "lexical": 0.6,
+      "checker": false,
+      "llm": false,
+      "llm_reason": "The passages describe physical layer procedures and measurements but do not reference TS 38.215."
+    },
+    {
+      "case": "gs-011",
+      "claim": "The carrier aggregation, supplementary uplink, and uplink Tx switching are described in TS 38.300.",
+      "cited": true,
+      "support": 0.666,
+      "lexical": 0.667,
+      "checker": false,
+      "llm": false,
+      "llm_reason": "The passages do not mention TS 38.300. They describe various aspects of 3GPP specifications related to downlink and uplink transmission schemes, physical layer processing, and carrier aggregation, but no reference to TS 38.300 is provided."
+    },
+    {
+      "case": "gs-011",
+      "claim": "The frame structure, including frame structure type 1 and frame structure type 2, is described in TS 36.211.",
+      "cited": true,
+      "support": 0.578,
+      "lexical": 0.0,
+      "checker": false,
+      "llm": false,
+      "llm_reason": "The passages do not mention frame structure type 1 or type 2, nor do they reference TS 36.211."
+    },
+    {
+      "case": "gs-011",
+      "claim": "The physical channels and modulation are described in TS 38.211.",
+      "cited": true,
+      "support": 0.73,
+      "lexical": 0.333,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passages detail sections on physical channels (e.g., narrowband physical downlink shared channel, narrowband physical broadcast channel, narrowband physical downlink control channel) and modulation (e.g., modulation and upconversion, scrambling, modulation) which are relevant to TS 38.211."
+    },
+    {
+      "case": "gs-011",
+      "claim": "The multiplexing and channel coding are described in TS 38.212.",
+      "cited": true,
+      "support": 0.674,
+      "lexical": 0.167,
+      "checker": false,
+      "llm": false,
+      "llm_reason": "The passages describe physical layer procedures and channel coding aspects but do not explicitly reference TS 38.212."
+    },
+    {
+      "case": "gs-011",
+      "claim": "The user equipment (UE) radio transmission and reception, including range 1 standalone, range 2 standalone, range 1 and range 2 interworking operation with other radios, are described in TS 38.101-1, TS 38.101-2, TS 38.101-3, and TS 38.101-4.",
+      "cited": true,
+      "support": 0.932,
+      "lexical": 0.913,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly lists TS 38.101-1, TS 38.101-2, TS 38.101-3, and TS 38.101-4 as documents describing UE radio transmission and reception, including the specified ranges."
+    },
+    {
+      "case": "gs-012",
+      "claim": "The Packet Data Convergence Protocol (PDCP) is a protocol used in 5G New Radio (NR) networks, supporting functions such as header compression and decompression, data transfer, ciphering and deciphering, integrity protection and integrity verification, and timer-based SDU discard, among others.",
+      "cited": true,
+      "support": 0.789,
+      "lexical": 0.655,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage lists several PDCP functions directly supporting the sentence's claims."
+    },
+    {
+      "case": "gs-012",
+      "claim": "PDCP performs several key functions in NR, including header compression and decompression using the ROHC protocol, header compression and decompression using the EHC protocol, uplink data compression and decompression using the UDC protocol, ciphering and deciphering, integrity protection and integrity verification, and timer-based SDU discard.",
+      "cited": true,
+      "support": 0.857,
+      "lexical": 0.815,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly lists these functions as supported by the PDCP layer."
+    },
+    {
+      "case": "gs-012",
+      "claim": "In NR, PDCP is used for both control plane and user plane data transfer, and it supports functions such as duplication, reordering, and in-order delivery of PDCP PDUs.",
+      "cited": true,
+      "support": 0.836,
+      "lexical": 0.824,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states PDCP supports data transfer (user plane and control plane) and lists duplication, reordering, and in-order delivery as functions."
+    },
+    {
+      "case": "gs-012",
+      "claim": "For a NB-IoT UE that supports Control Plane CIoT EPS optimisation and S1-U data transfer or User Plane CIoT EPS optimisation, PDCP is not used until AS security is activated.",
+      "cited": true,
+      "support": 0.907,
+      "lexical": 0.85,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage states that for a NB-IoT UE supporting Control Plane CIoT 5GS Optimisation and NG-U data transfer, PDCP is bypassed until AS security is activated."
+    },
+    {
+      "case": "gs-013",
+      "claim": "The NG interface between NG-RAN and 5GC is a point-to-point logical interface that supports the exchange of signalling information between the NG-RAN and 5GC, and is open, decoupled with the possible NG-RAN deployment variants, and future-proof to fulfil different new requirements and support of new services and functions.",
+      "cited": true,
+      "support": 0.941,
+      "lexical": 0.926,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that the NG interface is a point-to-point logical interface, supports signalling exchange, is open, decoupled, and future-proof, mirroring the sentence's claims."
+    },
+    {
+      "case": "gs-013",
+      "claim": "From a logical standpoint, the NG interface is a point-to-point interface between an NG-RAN node and a 5GC node, and supports control plane and user plane separation, separating Radio Network Layer and Transport Network Layer.",
+      "cited": true,
+      "support": 0.912,
+      "lexical": 0.95,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states the NG interface is a point-to-point interface between NG-RAN and 5GC nodes and details its separation of control/user planes and layers."
+    },
+    {
+      "case": "gs-013",
+      "claim": "The NG interface facilitates the inter-connection of NG-RAN nodes with AMFs supplied by different manufacturers, and supports modular procedures design and uses a syntax allowing optimized encoding/decoding efficiency.",
+      "cited": true,
+      "support": 0.831,
+      "lexical": 0.96,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that the NG interface facilitates inter-connection of NG-RAN nodes with AMFs and describes the NG Application Protocol's design and syntax."
+    },
+    {
+      "case": "gs-013",
+      "claim": "Note that the NG interface is not necessarily a physical direct connection between the NG-RAN and 5GC, but rather a logical interface that can be feasible even in the absence of a physical direct connection.",
+      "cited": true,
+      "support": 0.848,
+      "lexical": 0.75,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states the NG interface is a logical interface and feasible without a physical connection."
+    },
+    {
+      "case": "gs-014",
+      "claim": "The gNB-CU-CP and gNB-CU-UP are logical nodes in the gNB (5G New Radio) architecture.",
+      "cited": false,
+      "support": 0.767,
+      "lexical": 0.583,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly defines gNB-CU-CP and gNB-CU-UP as logical nodes within the gNB architecture, as stated in multiple sections (e.g., 6.1.3, 6.1.4)."
+    },
+    {
+      "case": "gs-014",
+      "claim": "The gNB-CU-CP (gNB Control-User Plane Component) is a logical node hosting the control plane part of the PDCP (Packet Data Convergence Protocol) protocol of the gNB-CU (5G New Radio User Plane) for an eNB (Evolved-NodeB) or a gNB acting as secondary node.",
+      "cited": true,
+      "support": 0.946,
+      "lexical": 0.571,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that gNB-CU-CP hosts the RRC and control plane part of the PDCP protocol for an en-gNB or gNB acting as a secondary node."
+    },
+    {
+      "case": "gs-014",
+      "claim": "It terminates the E1 interface connected with the gNB-CU-UP and the F1-C interface connected with the gNB-DU.",
+      "cited": true,
+      "support": 0.863,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that the gNB-CU-CP terminates the E1 and F1-C interfaces."
+    },
+    {
+      "case": "gs-014",
+      "claim": "The gNB-CU-UP (gNB Control-User Plane User Plane) is a logical node hosting the user plane part of the PDCP protocol of the gNB-CU for an eNB, and the user plane part of the PDCP protocol and the SDAP (Session Description Protocol) protocol of the gNB-CU for a gNB.",
+      "cited": true,
+      "support": 0.973,
+      "lexical": 0.789,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage directly states this functionality for both 'en-gNB' and 'gNB'."
+    },
+    {
+      "case": "gs-014",
+      "claim": "It terminates the E1 interface connected with the gNB-CU-CP and the F1-U interface connected with the gNB-DU.",
+      "cited": true,
+      "support": 0.854,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that the gNB-CU-UP terminates the E1 and F1-U interfaces."
+    },
+    {
+      "case": "gs-014",
+      "claim": "The main difference between the gNB-CU-CP and gNB-CU-UP is that the gNB-CU-CP is responsible for the control plane, while the gNB-CU-UP is responsible for the user plane.",
+      "cited": true,
+      "support": 0.829,
+      "lexical": 0.75,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passages clearly state that gNB-CU-CP hosts the RRC and control plane part of the PDCP protocol (control plane) and gNB-CU-UP hosts the user plane part of the PDCP and SDAP protocols."
+    },
+    {
+      "case": "gs-015",
+      "claim": "Beamforming in 5G NR refers to the process of directing radio energy from an antenna to a specific user equipment (UE) device, improving signal strength and reducing interference.",
+      "cited": false,
+      "support": 0.803,
+      "lexical": 0.316,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage details beamforming capabilities within 5G NR, specifically mentioning beamforming for the BCH and DL-SCH, including features like dynamic link adaptation, beamforming, and DRX. This aligns with the sentence's description."
+    },
+    {
+      "case": "gs-015",
+      "claim": "This is achieved by adjusting the phase and amplitude of the radio signals transmitted by the base station (gNB) to match the direction of the UE's antenna.",
+      "cited": false,
+      "support": 0.674,
+      "lexical": 0.133,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passage describes gNBs using beamforming to adjust signal parameters (phase and amplitude) for UE antenna directionality, aligning with the sentence's description."
+    },
+    {
+      "case": "gs-015",
+      "claim": "Beam management in 5G NR is a related concept that involves the selection and optimization of the beamforming process to improve the overall performance of the wireless communication system.",
+      "cited": false,
+      "support": 0.793,
+      "lexical": 0.353,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage extensively discusses beam management, including AI/ML-based beam management utilizing intra-cell downlink beam prediction, reducing measurement/RS overhead, and improving beam selection accuracy. This aligns directly with the sentence's description."
+    },
+    {
+      "case": "gs-015",
+      "claim": "This includes tasks such as beam selection, beam tracking, and beam switching, which are performed by the gNB to adapt to changes in the UE's location and movement.",
+      "cited": false,
+      "support": 0.585,
+      "lexical": 0.333,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passage describes gNB functionalities including beam management, beam prediction, and beam selection, aligning with the sentence's description of tasks performed by the gNB."
+    },
+    {
+      "case": "gs-015",
+      "claim": "AI/ML-based beam management utilizes intra-cell downlink beam prediction of the serving cell to reduce measurement/RS overhead and to improve the accuracy of beam selection.",
+      "cited": false,
+      "support": 0.823,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage directly states that AI/ML-based beam management utilizes intra-cell downlink beam prediction to reduce overhead and improve accuracy."
+    },
+    {
+      "case": "gs-015",
+      "claim": "There is no clear definition of beamforming and beam management in the provided context documents.",
+      "cited": false,
+      "support": 0.717,
+      "lexical": 0.111,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passages extensively discuss beam management (e.g., 'AI/ML-based Beam Management', 'intra-cell downlink beam prediction') and beamforming (e.g., 'beamforming different BCH instances', 'possibility to use beamforming')."
+    },
+    {
+      "case": "gs-015",
+      "claim": "The provided information seems to be related to beam prediction and beam tracking, but it does not explicitly define beamforming and beam management.",
+      "cited": false,
+      "support": 0.679,
+      "lexical": 0.083,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passages extensively discuss beam management, beam prediction (intra-cell downlink beam prediction), and beam tracking (utilizing intra-cell downlink beam prediction to reduce measurement/RS overhead and improve beam selection accuracy)."
+    },
+    {
+      "case": "gs-016",
+      "claim": "Dual connectivity in NR involves two RAN nodes, i.e.",
+      "cited": false,
+      "support": 0.847,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'Dual Connectivity involves two RAN nodes, i.e. Master and Secondary RAN nodes...'"
+    },
+    {
+      "case": "gs-016",
+      "claim": "Master and Secondary RAN nodes, in providing radio resources to a given UE (with active radio bearers), while a single S1-MME termination point exists for an UE between a MME and the E-UTRAN.",
+      "cited": true,
+      "support": 0.879,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage directly describes the scenario outlined in the sentence, detailing dual connectivity with Master and Secondary RAN nodes and a single S1-MME termination point."
+    },
+    {
+      "case": "gs-016",
+      "claim": "In this context, the Master RAN node performs all necessary N2 related functions such as mobility management, relaying of NAS signalling, etc. and manages the handling of user plane connection (e.g. transfer over N3).",
+      "cited": true,
+      "support": 0.942,
+      "lexical": 0.962,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that the Master RAN node performs these functions."
+    },
+    {
+      "case": "gs-016",
+      "claim": "The Master RAN node may use resources of another RAN node, the Secondary RAN node, to exchange User Plane traffic of an UE.",
+      "cited": true,
+      "support": 0.948,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'Master RAN node takes into account the RSN and/or PDU Session Pair ID to determine if dual connectivity shall be set up and ensure appropriate PDU session handling ensures fully redundant user plane path as described in clause 5.33.2.1. If the UE has Mobility Restriction (either signalled from the UDM, or, locally generated by the Serving PLMN policy in the AMF) the AMF signals these restrictions to the Master RAN Node as Mobility Restriction List; This may prevent the Master RAN node from setting up a Dual Connectivity for an UE.'"
+    },
+    {
+      "case": "gs-016",
+      "claim": "Dual connectivity defines Master Cell Group (MCG) bearer and Secondary Cell Group (SCG) bearer alternatives.",
+      "cited": true,
+      "support": 0.935,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'Dual Connectivity defines Master Cell Group (MCG) bearer and Secondary Cell Group (SCG) bearer alternatives (see TS 36.300 [5]).'"
+    },
+    {
+      "case": "gs-016",
+      "claim": "For E-RABs configured as MCG bearers the U-plane termination points are maintained, whereas for E-RABs configured as SCG bearers it enables changing the U-plane termination point in the E-UTRAN by means of S1-MME signalling without changing the S1-MME termination point.",
+      "cited": true,
+      "support": 0.875,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage directly describes the behavior of E-RABs with MCG and SCG bearers, including the maintenance of U-plane termination points for MCG bearers and the ability to change them for SCG bearers via S1-MME signalling."
+    },
+    {
+      "case": "gs-016",
+      "claim": "However, the Dual Connectivity function does not apply to the NR RedCap UE.",
+      "cited": true,
+      "support": 0.906,
+      "lexical": 0.889,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'In this Release of the specification, the Dual Connectivity function does not apply to the NR RedCap UE.'"
+    },
+    {
+      "case": "gs-017",
+      "claim": "HARQ (Hybrid Automatic Repeat Request) is a retransmission mechanism used in 5G New Radio (NR) to improve the reliability of data transmission.",
+      "cited": false,
+      "support": 0.74,
+      "lexical": 0.267,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passage extensively discusses HARQ processes, their operation, and related concepts within the context of 5G NR (NR Radio Link Control) and includes definitions like 'Hybrid Automatic repeat Request' and references to TS 38.211."
+    },
+    {
+      "case": "gs-017",
+      "claim": "In NR, HARQ is used to retransmit data that has been lost or corrupted during transmission, allowing the receiver to recover the original data.",
+      "cited": false,
+      "support": 0.714,
+      "lexical": 0.25,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passage describes the use of HARQ (Hybrid Automatic Repeat Request) in NR for retransmitting data due to loss or corruption, aligning with the sentence's description."
+    },
+    {
+      "case": "gs-017",
+      "claim": "HARQ works by maintaining a buffer of data at the transmitter and receiver, and using a sequence of redundancy versions to ensure that the received data is accurate.",
+      "cited": false,
+      "support": 0.713,
+      "lexical": 0.571,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passage details HARQ's operation, including maintaining a HARQ buffer, using redundancy versions (sequence of redundancy versions), and handling NACKs/ACKs."
+    },
+    {
+      "case": "gs-017",
+      "claim": "The HARQ process is associated with a HARQ buffer, which is used to store the data being transmitted.",
+      "cited": false,
+      "support": 0.784,
+      "lexical": 0.625,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states 'Each HARQ process is associated with a HARQ buffer.'"
+    },
+    {
+      "case": "gs-017",
+      "claim": "The HARQ process also maintains a state variable CURRENTTXNB, which indicates the number of transmissions that have taken place for the MAC PDU currently in the buffer, and a state variable HARQFEEDBACK, which indicates the HARQ feedback for the MAC PDU currently in the buffer.",
+      "cited": true,
+      "support": 0.92,
+      "lexical": 0.778,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that each HARQ process maintains CURRENT_TXNB and HARQ_FEEDBACK variables with the described functions."
+    },
+    {
+      "case": "gs-017",
+      "claim": "When the HARQ process is established, CURRENTTXNB is initialized to 0.",
+      "cited": false,
+      "support": 0.85,
+      "lexical": 0.833,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'The sequence of redundancy versions is 0, 2, 3, 1. The variable CURRENT_IRV is an index into the sequence of redundancy versions. This variable is up-dated modulo 4. When the HARQ process is established, CURRENT_TX_NB shall be initialized to 0.'"
+    },
+    {
+      "case": "gs-017",
+      "claim": "The sequence of redundancy versions is 0, 2, 3, 1, and the variable CURRENTIRV is an index into the sequence of redundancy versions, which is updated modulo 4.",
+      "cited": true,
+      "support": 0.873,
+      "lexical": 0.846,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states the sequence of redundancy versions (0, 2, 3, 1) and describes CURRENTIRV as an index into this sequence, updated modulo 4."
+    },
+    {
+      "case": "gs-017",
+      "claim": "The HARQ process can be configured to operate in different modes, including synchronous and asynchronous modes.",
+      "cited": false,
+      "support": 0.715,
+      "lexical": 0.333,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passage explicitly details synchronous and asynchronous HARQ operation, including how CURRENT_IRV is updated based on whether the operation is autonomous or not."
+    },
+    {
+      "case": "gs-017",
+      "claim": "In synchronous mode, the HARQ process is synchronized with the transmission of the MAC PDU, and the HARQ feedback is used to determine whether the data has been received correctly.",
+      "cited": false,
+      "support": 0.809,
+      "lexical": 0.643,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage details the synchronous HARQ operation, including the use of CURRENT_TX_NB, HARQ_FEEDBACK, and ACK to determine data reception."
+    },
+    {
+      "case": "gs-017",
+      "claim": "In asynchronous mode, the HARQ process is not synchronized with the transmission of the MAC PDU, and the HARQ feedback is used to determine whether the data has been received correctly.",
+      "cited": true,
+      "support": 0.778,
+      "lexical": 0.6,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage describes asynchronous HARQ operation, where the HARQ feedback is used to determine retransmissions, aligning with the sentence's description."
+    },
+    {
+      "case": "gs-017",
+      "claim": "The HARQ process can also be configured to use different retransmission strategies, including non-adaptive and adaptive retransmission.",
+      "cited": false,
+      "support": 0.691,
+      "lexical": 0.636,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passage details asynchronous and adaptive HARQ operation, including configurations like `fixedRV-NonAdaptive` and the calculation of `CURRENT_IRV` based on redundancy version values, indicating different retransmission strategies."
+    },
+    {
+      "case": "gs-017",
+      "claim": "Non-adaptive retransmission involves retransmitting the same data packet, while adaptive retransmission involves retransmitting a new packet with a different redundancy version.",
+      "cited": true,
+      "support": 0.743,
+      "lexical": 0.538,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passage describes both non-adaptive (fixedRV-NonAdaptive) and adaptive (index corresponding to the redundancy version) retransmissions, aligning with the sentence's description."
+    },
+    {
+      "case": "gs-017",
+      "claim": "In NR, the HARQ process is used in conjunction with the RLC (Radio Link Control) protocol to provide reliable data transmission.",
+      "cited": false,
+      "support": 0.706,
+      "lexical": 0.462,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passage explicitly mentions HARQ and RLC and their use in NR."
+    },
+    {
+      "case": "gs-017",
+      "claim": "The RLC protocol is used to manage the transmission of data between the UE and the eNodeB, and the HARQ process is used to retransmit data that has been lost or corrupted during transmission.",
+      "cited": true,
+      "support": 0.631,
+      "lexical": 0.231,
+      "checker": false,
+      "llm": false,
+      "llm_reason": "The sentence mentions HARQ, but the passages do not discuss HARQ or the eNodeB. It only specifies the NR RLC protocol for the UE."
+    },
+    {
+      "case": "gs-017",
+      "claim": "Overall, HARQ is an important mechanism in NR that provides reliable data transmission and improves the overall performance of the system.",
+      "cited": false,
+      "support": 0.732,
+      "lexical": 0.25,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passage describes HARQ's role in reliable data transmission, its state variables (CURRENT_TX_NB, HARQ_FEEDBACK), and its operation, all of which support the sentence's claim about its importance for system performance."
+    },
+    {
+      "case": "gs-018",
+      "claim": "The RLC (Radio Link Control) protocol in NR supports three transmission modes: Transparent Mode (TM), Unacknowledged Mode (UM), and Acknowledged Mode (AM).",
+      "cited": false,
+      "support": 0.853,
+      "lexical": 0.294,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'The RLC sublayer supports three transmission modes: - Transparent Mode (TM); - Unacknowledged Mode (UM); - Acknowledged Mode (AM).'"
+    },
+    {
+      "case": "gs-018",
+      "claim": "The RLC configuration is per logical channel with no dependency on numerologies and/or transmission durations, and ARQ can operate on any of the numerologies and/or transmission durations the logical channel is configured with,.",
+      "cited": true,
+      "support": 0.962,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'The RLC configuration is per logical channel with no dependency on numerologies and/or transmission durations, and ARQ can operate on any of the numerologies and/or transmission durations the logical channel is configured with.'"
+    },
+    {
+      "case": "gs-018",
+      "claim": "For SRB0, paging and broadcast system information, TM mode is used, while for other SRBs AM mode is used,.",
+      "cited": true,
+      "support": 0.976,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states 'For SRB0, paging and broadcast system information, TM mode is used. For other SRBs AM mode used.'"
+    },
+    {
+      "case": "gs-018",
+      "claim": "The main services and functions of the RLC sublayer depend on the transmission mode and include: transfer of upper layer PDUs, sequence numbering independent of the one in PDCP (UM and AM), and error correction through ARQ,.",
+      "cited": true,
+      "support": 0.885,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that the RLC sublayer's services and functions depend on transmission mode and lists the specified services with corresponding modes (UM and AM)."
+    },
+    {
+      "case": "gs-018",
+      "claim": "However, the specific details of the three modes (TM, UM, and AM) and their characteristics are not explicitly stated in the provided context excerpts.",
+      "cited": false,
+      "support": 0.821,
+      "lexical": 0.4,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passages detail the three RLC transmission modes (TM, UM, and AM) and their characteristics, including their use for paging, broadcast, and data transfer, as well as ARQ operation. This directly addresses the sentence's claim about the lack of explicit details."
+    },
+    {
+      "case": "gs-019",
+      "claim": "The NR random access procedure is outlined in TS 38.300.",
+      "cited": true,
+      "support": 0.65,
+      "lexical": 0.571,
+      "checker": false,
+      "llm": false,
+      "llm_reason": "The passage describes NR random access procedures but does not reference TS 38.300."
+    },
+    {
+      "case": "gs-019",
+      "claim": "eNB assigns to UE a non-contention Random Access Preamble (a Random Access Preamble not within the set sent in broadcast signalling).",
+      "cited": false,
+      "support": 0.822,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'eNB assigns to UE a non-contention Random Access Preamble (a Random Access Preamble not within the set sent in broadcast signalling).'"
+    },
+    {
+      "case": "gs-019",
+      "claim": "HO command generated by target eNB and sent via source eNB for handover;",
+      "cited": false,
+      "support": 0.884,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'Signalled via: - HO command generated by target eNB and sent via source eNB for handover'."
+    },
+    {
+      "case": "gs-019",
+      "claim": "PDCCH in case of DL data arrival or positioning;",
+      "cited": false,
+      "support": 0.892,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'Signalled via: - HO command generated by target eNB and sent via source eNB for handover; - PDCCH in case of DL data arrival or positioning; - PDCCH for initial UL time alignment for a sTAG.'"
+    },
+    {
+      "case": "gs-019",
+      "claim": "PDCCH for initial UL time alignment for a sTAG.",
+      "cited": false,
+      "support": 0.873,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: '- Timing Alignmen [sic] information and initial UL grant for handover; - Timing Alignmen'"
+    },
+    {
+      "case": "gs-019",
+      "claim": "UE transmits the assigned non-contention Random Access Preamble.",
+      "cited": false,
+      "support": 0.833,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'UE transmits the assigned non-contention Random Access Preamble.'"
+    },
+    {
+      "case": "gs-019",
+      "claim": "Semi-synchronous (within a flexible window of which the size is two or more TTIs) with message 1;",
+      "cited": false,
+      "support": 0.792,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'Semi-synchronous (within a flexible window of which the size is two or more TTIs) with message 1'."
+    },
+    {
+      "case": "gs-019",
+      "claim": "Addressed to RA-RNTI on PDCCH;",
+      "cited": false,
+      "support": 0.898,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: '- Addressed to RA-RNTI on PDCCH;'"
+    },
+    {
+      "case": "gs-019",
+      "claim": "Timing Alignment information and initial UL grant for handover;",
+      "cited": false,
+      "support": 0.919,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'Timing Alignment information and initial UL grant for handover'."
+    },
+    {
+      "case": "gs-019",
+      "claim": "The applicability of SDT is determined by MAC entity according to clause 5.27, and the applicability of NSAG-ID is determined by upper layers when the Random Access procedure is initiated.",
+      "cited": true,
+      "support": 0.848,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that the applicability of SDT is determined by the MAC entity according to clause 5.27 and the applicability of NSAG-ID is determined by upper layers when the Random Access procedure is initiated."
+    },
+    {
+      "case": "gs-020",
+      "claim": "The LTE X2 interface is used for inter-eNB communication, specifically for exchanging necessary data for the setup of the X2 interface and implicitly performing an X2 reset, as well as for mobility parameter management, load management, and reporting of general error situations.",
+      "cited": true,
+      "support": 0.807,
+      "lexical": 0.625,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly details the X2 interface's use for setup, reset, mobility parameter management, and reporting error situations, aligning with the sentence's claims."
+    },
+    {
+      "case": "gs-020",
+      "claim": "It is also used for setting up the X2 interface, which allows for the exchange of necessary data for the eNB or en-gNB to set up the X2 interface.",
+      "cited": true,
+      "support": 0.873,
+      "lexical": 0.857,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly details functions like 'Setting up the X2' and 'eNB Configuration Update' which involve exchanging data to establish the X2 interface."
+    },
+    {
+      "case": "gs-020",
+      "claim": "Additionally, the X2 interface is used for energy saving, allowing the indication of cell activation/deactivation over the X2 interface.",
+      "cited": true,
+      "support": 0.929,
+      "lexical": 0.833,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states 'Energy Saving. This function allows decreasing energy consumption by enabling indication of cell activation/deactivation over the X2 interface.'"
+    },
+    {
+      "case": "gs-021",
+      "claim": "The E-UTRAN architecture in LTE consists of a set of eNBs (Evolved Node B) connected to the EPC (Evolved Packet Core) through the S1 interface, and interconnected with each other by means of the X2 interface.",
+      "cited": true,
+      "support": 0.89,
+      "lexical": 0.636,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that the E-UTRAN consists of eNBs connected to the EPC via the S1 interface and interconnected by the X2 interface."
+    },
+    {
+      "case": "gs-021",
+      "claim": "The eNBs provide the E-UTRA user plane (PDCP/RLC/MAC/PHY) and control plane (RRC) protocol terminations towards the UE (User Equipment).",
+      "cited": true,
+      "support": 0.72,
+      "lexical": 0.278,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passage describes eNBs connected to the EPC through the S1 interface, and mentions RRC as a control plane protocol. It also implies the presence of user plane protocols like PDCP/RLC/MAC/PHY."
+    },
+    {
+      "case": "gs-021",
+      "claim": "The eNBs are also connected to the EPC through the S1-MME interface to the MME (Mobility Management Entity) and to the Serving Gateway (S-GW) by means of the S1-U interface.",
+      "cited": true,
+      "support": 0.74,
+      "lexical": 0.333,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passage describes eNBs connected to the EPC via S1 interfaces (S1-MME and S1-U), aligning with the sentence's details."
+    },
+    {
+      "case": "gs-022",
+      "claim": "SDAP (Service Data Adaptation Protocol) is a protocol that maps between a QoS flow and a data radio bearer, marking QoS flow IDs (QFI) in both downlink (DL) and uplink (UL) packets.",
+      "cited": false,
+      "support": 0.848,
+      "lexical": 0.316,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly describes SDAP's functions: mapping QoS flows to DRBs, marking QFI in DL and UL packets, and provides relevant details about the protocol."
+    },
+    {
+      "case": "gs-022",
+      "claim": "This protocol is part of the 5G System and is used to provide quality of service (QoS) forwarding treatment.",
+      "cited": false,
+      "support": 0.79,
+      "lexical": 0.6,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that SDAP (referenced in the passage) is part of the 5G System and is used for QoS forwarding treatment."
+    },
+    {
+      "case": "gs-022",
+      "claim": "SDAP is configured for each individual PDU session and is used to provide secure element and exchanges N1 signalling with the 5GC.",
+      "cited": false,
+      "support": 0.73,
+      "lexical": 0.462,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'A single protocol entity of SDAP is configured for each individual PDU session. The 5G-RG can be either a 5G-BRG or 5G-CRG. It supports secure element and exchanges N1 signalling with 5GC.'"
+    },
+    {
+      "case": "gs-022",
+      "claim": "SDAP plays a crucial role in the 5G System by providing a unified authentication framework, supporting stateless NFs, and enabling concurrent access to local and centralized services.",
+      "cited": false,
+      "support": 0.732,
+      "lexical": 0.632,
+      "checker": false,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that SDAP supports a unified authentication framework, supports stateless NFs, and enables concurrent access to local and centralized services."
+    },
+    {
+      "case": "gs-022",
+      "claim": "It is also used to support roaming with both Home routed traffic as well as Local breakout traffic in the visited PLMN.",
+      "cited": false,
+      "support": 0.809,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage states: 'Support roaming with both Home routed traffic as well as Local breakout traffic in the visited PLMN.'"
+    },
+    {
+      "case": "gs-022",
+      "claim": "SDAP is defined in TS 36.331 and TS 23.501.",
+      "cited": true,
+      "support": 0.814,
+      "lexical": 0.4,
+      "checker": true,
+      "llm": false,
+      "llm_reason": "The passages do not mention TS 36.331 or TS 23.501. It references TS 23.502."
+    },
+    {
+      "case": "gs-023",
+      "claim": "NSSAI stands for Network Slice Specific Access Information, which is a set of information that defines the access information for a specific Network Slice (TS 23.501, ).",
+      "cited": true,
+      "support": 0.793,
+      "lexical": 0.545,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly defines NSSAI as 'Network Slice Specific Access Information' and describes it as a set of information defining access for a Network Slice."
+    },
+    {
+      "case": "gs-023",
+      "claim": "At the RAN level, network slicing is realized by providing different L1/L2 configurations to different network slices (TS 38.300, ).",
+      "cited": true,
+      "support": 0.814,
+      "lexical": 0.714,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that network slicing is realized at the RAN level by providing different L1/L2 configurations to different network slices."
+    },
+    {
+      "case": "gs-023",
+      "claim": "The RAN part of a network slice consists of the radio access network, which includes the baseband unit, the radio unit, and the radio frequency unit (TS 38.300, ).",
+      "cited": true,
+      "support": 0.715,
+      "lexical": 0.462,
+      "checker": false,
+      "llm": false,
+      "llm_reason": "The passage discusses network slicing principles but does not explicitly detail the components of the RAN part (baseband unit, radio unit, radio frequency unit)."
+    },
+    {
+      "case": "gs-023",
+      "claim": "The support of network slicing relies on the principle that traffic for different slices is handled by different PDU sessions (TS 38.300, ).",
+      "cited": true,
+      "support": 0.87,
+      "lexical": 0.846,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that network slicing support relies on 'the principle that traffic for different slices is handled by different PDU sessions'."
+    },
+    {
+      "case": "gs-023",
+      "claim": "The RAN part of a network slice is configured to support the specific access information for that slice, which includes the NSSAI (TS 23.501, ).",
+      "cited": true,
+      "support": 0.766,
+      "lexical": 0.462,
+      "checker": true,
+      "llm": false,
+      "llm_reason": "The passage describes the AMF and 5G-AN configuring support for network slices, but doesn't explicitly mention the RAN's role in configuring access information or NSSAI support. It focuses on the AMF's role in learning and updating S-NSSAIs."
+    },
+    {
+      "case": "gs-023",
+      "claim": "The NSSAI is used by the RAN for AMF selection, as described in clause 6.3.5 (TS 23.501, ).",
+      "cited": true,
+      "support": 0.762,
+      "lexical": 0.778,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'The Requested NSSAI is used by the RAN for AMF selection, as described in clause 6.3.5.'"
+    },
+    {
+      "case": "gs-023",
+      "claim": "The Requested NSSAI is used by the UE to request a specific access type, and the RAN uses this information to select the AMF (TS 23.501, ).",
+      "cited": true,
+      "support": 0.814,
+      "lexical": 0.571,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states 'The Requested NSSAI is used by the RAN for AMF selection, as described in clause 6.3.5.' and implies the UE uses it to request an access type through RAN selection."
+    },
+    {
+      "case": "gs-023",
+      "claim": "In summary, NSSAI is a set of information that defines the access information for a specific Network Slice, and it is used by the RAN to configure the radio access network and select the AMF for a specific access type.",
+      "cited": false,
+      "support": 0.798,
+      "lexical": 0.533,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage repeatedly emphasizes the role of NSSAI in defining access information for Network Slices, configuring the RAN, and selecting the AMF. It details how the AMF learns NSSAI support and uses it for various signaling processes."
+    },
+    {
+      "case": "gs-024",
+      "claim": "The SSB (Synchronization Signal Block) in NR refers to the block of symbols that carries the primary and secondary synchronization signals (PSS, SSS) and the Physical Broadcast Channel (PBCH) block.",
+      "cited": false,
+      "support": 0.882,
+      "lexical": 0.765,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly defines SSB as containing PSS, SSS, and PBCH, directly supporting the sentence's description."
+    },
+    {
+      "case": "gs-024",
+      "claim": "The SSB block is transmitted across 3 OFDM symbols and 240 subcarriers, but on one symbol leaving an unused part in the middle for SSS.",
+      "cited": false,
+      "support": 0.773,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states: 'PBCH spanning across 3 OFDM symbols and 240 subcarriers, but on one symbol leaving an unused part in the middle for SSS as show in Figure 5.2.4-1.'"
+    },
+    {
+      "case": "gs-024",
+      "claim": "The possible time locations of SSBs within a half-frame are determined by sub-carrier spacing and the periodicity of the half-frames where SSBs are transmitted is configured by the network.",
+      "cited": false,
+      "support": 0.95,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that 'The possible time locations of SSBs within a half-frame are determined by sub-carrier spacing and the periodicity of the half-frames where SSBs are transmitted is configured by the network.'"
+    },
+    {
+      "case": "gs-024",
+      "claim": "The SSB block is used for synchronization and is transmitted in different spatial directions (i.e. using different beams, spanning the coverage area of a cell) within the frequency span of a carrier.",
+      "cited": false,
+      "support": 0.903,
+      "lexical": 1.0,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that SSBs are transmitted in different spatial directions (beams) within the frequency span of a carrier, aligning with the sentence's description of their use for synchronization and coverage expansion."
+    },
+    {
+      "case": "gs-024",
+      "claim": "The SSB block is also used for NR Dual Connectivity, where it is transmitted in conjunction with the Secondary Cell Group (SCG) and the Secondary Cell (SCell).",
+      "cited": false,
+      "support": 0.789,
+      "lexical": 0.462,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage details the use of SSB for NR Dual Connectivity with SCG and SCell, referencing TS 38.213 [88] and describing the MTC-SSB-NR IE which specifies SS/PBCH block measurement timing configuration (SMTC) applicable for SSB based NR measurements."
+    },
+    {
+      "case": "gs-024",
+      "claim": "The SSB block is also used for NR-DC (NR Dual Connectivity) and is transmitted in conjunction with the Primary Cell (PCell) and the Secondary Cell (SCell).",
+      "cited": false,
+      "support": 0.776,
+      "lexical": 0.733,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage explicitly states that the SSB block is used for NR-DC, and it is transmitted in conjunction with the PCell and SCell."
+    },
+    {
+      "case": "gs-024",
+      "claim": "Note that the SSB block is not explicitly defined in the provided context excerpts, but rather is described in relation to other NR concepts such as SSB periodicity, SS/PBCH block measurement timing configuration, and NR Dual Connectivity.",
+      "cited": false,
+      "support": 0.76,
+      "lexical": 0.24,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passage extensively describes SSB concepts like periodicity, SS/PBCH block measurement timing, and its relation to NR Dual Connectivity, directly supporting the sentence's claim."
+    },
+    {
+      "case": "gs-025",
+      "claim": "The physical layer of 5G New Radio (NR) has several differences compared to the physical layer of Long-Term Evolution (LTE).",
+      "cited": false,
+      "support": 0.899,
+      "lexical": 0.357,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passages list numerous 3GPP TS specifications related to NR and LTE, including TS 38.201, TS 38.211, TS 38.213, TS 38.214, TS 38.321, TS 38.331, TS 36.331, and TS 36.211, demonstrating differences between the two technologies."
+    },
+    {
+      "case": "gs-025",
+      "claim": "One key difference is the use of orthogonal frequency-division multiplexing (OFDM) in NR, whereas LTE uses a combination of OFDM and single-carrier frequency-division multiplexing (SC-FDMA).",
+      "cited": true,
+      "support": 0.882,
+      "lexical": 0.1,
+      "checker": true,
+      "llm": false,
+      "llm_reason": "The passages do not mention OFDM or SC-FDMA, nor do they describe a key difference between NR and LTE in terms of modulation schemes."
+    },
+    {
+      "case": "gs-025",
+      "claim": "Another difference is the use of a more efficient coding scheme in NR, such as low-density parity-check (LDPC) codes, whereas LTE uses turbo codes.",
+      "cited": true,
+      "support": 0.888,
+      "lexical": 0.1,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passages reference 3GPP TS 38.201 which describes the NR physical layer and includes information about coding schemes like LDPC codes, contrasting them with LTE's turbo codes."
+    },
+    {
+      "case": "gs-025",
+      "claim": "Additionally, NR has a more flexible and adaptive transmission scheme, with the ability to switch between different transmission modes, such as high-speed data transmission and low-speed data transmission.",
+      "cited": true,
+      "support": 0.903,
+      "lexical": 0.167,
+      "checker": true,
+      "llm": true,
+      "llm_reason": "The passages reference several 3GPP TS documents related to NR physical layer procedures, including those covering data channels, modulation, multiplexing, and measurements, implying a flexible and adaptive transmission scheme."
+    },
+    {
+      "case": "gs-025",
+      "claim": "It's worth noting that the physical layer of NR is designed to support a wider range of frequencies and higher data rates than LTE, with support for frequencies from 0.5 GHz to 100 GHz and peak data rates of up to 20 Gbps.",
+      "cited": true,
+      "support": 0.901,
+      "lexical": 0.217,
+      "checker": true,
+      "llm": false,
+      "llm_reason": "The sentence contains specific frequency and data rate figures (0.5 GHz to 100 GHz, 20 Gbps) that are not mentioned in the passages."
+    }
+  ]
+}

@@ -39,6 +39,7 @@ from src.api.models import (
     CatalogResponse, CatalogSpec,
 )
 from src.core.rag_chain import RAGChain
+from src.core.grounding import public_report
 from src.core.vector_store import VectorStore
 from src.core.llm import OllamaLLM
 from src.core.groq_llm import GroqLLM
@@ -335,6 +336,7 @@ async def query(request: QueryRequest, req: Request):
         query_time=result["query_time"],
         retrieve_time=result["retrieve_time"],
         generate_time=result["generate_time"],
+        grounding=public_report(result.get("grounding")),
     )
 
 

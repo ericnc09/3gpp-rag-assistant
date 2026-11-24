@@ -115,6 +115,10 @@ class Settings(BaseSettings):
     rerank: bool = False
     rerank_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     rerank_depth: int = 20
+    # Claim-level grounding check on generated answers (src/core/grounding.py,
+    # ADR-013): per-sentence citation + support scores, using the retrieval
+    # embedding model (no extra model, no LLM call).
+    grounding_check: bool = True
 
 
 # Global settings instance

@@ -61,6 +61,26 @@ class SourceDocument(BaseModel):
     spec_title: Optional[str] = Field(default=None, description="Human-readable spec title")
 
 
+class GroundingClaim(BaseModel):
+    """One answer sentence with its citation and support check (ADR-013)."""
+    text: str = Field(description="The claim (answer sentence, citations stripped)")
+    citations: List[int] = Field(default_factory=list, description="Cited [Dn] numbers")
+    cited: bool = Field(description="Has at least one valid citation")
+    supported: bool = Field(description="Cited chunk (or any chunk, if uncited) supports it")
+    grounded: bool = Field(description="Some retrieved chunk supports it")
+    support: float = Field(description="Best claim-to-chunk similarity")
+
+
+class GroundingReport(BaseModel):
+    """Claim-level grounding check. A similarity proxy, not entailment."""
+    n_claims: int
+    citation_coverage: Optional[float] = None
+    citation_precision: Optional[float] = None
+    grounded_ratio: Optional[float] = None
+    invalid_citations: int = 0
+    claims: List[GroundingClaim] = Field(default_factory=list)
+
+
 class QueryResponse(BaseModel):
     """Response body for POST /query"""
     answer: str = Field(description="Generated answer from the LLM")
@@ -69,6 +89,9 @@ class QueryResponse(BaseModel):
     query_time: float = Field(description="Total query time in seconds")
     retrieve_time: float = Field(description="Retrieval time in seconds")
     generate_time: float = Field(description="LLM generation time in seconds")
+    grounding: Optional[GroundingReport] = Field(
+        default=None, description="Claim-level citation/grounding check (ADR-013)"
+    )
 
 
 # ---------------------------------------------------------------------------

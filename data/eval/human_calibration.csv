@@ -1,0 +1,182 @@
+id,question,answer,human_faithfulness,human_correctness,notes
+gs-001,What is gNB?,"According to the provided context, a gNB (gNB Central Unit) is a logical node hosting RRC, SDAP and PDCP protocols of the gNB or RRC and PDCP protocols of the en-gNB that controls the operation of one or more gNB-DUs [D1].",,,
+gs-003,What is the E1 interface used for in 5G NG-RAN?,"The E1 interface is used for the connection between ng-eNB-CU and ng-eNB-DU in the 5G NG-RAN architecture, as specified in clause 8.1 of TS 38.401 [D4].",,,
+gs-004,What are the NG-RAN logical nodes and their functions?,"The NG-RAN logical nodes and their functions are defined as part of the RNL (Radio Network Layer) of the NG-RAN architecture, which consists of a set of gNBs (gNBs) and ng-eNBs (ng-eNBs) connected to the 5GC through the NG interface, as specified in TS 38.300 [7].
+
+The specific functions of the NG-RAN logical nodes are not explicitly stated in the provided context excerpts. However, the functions of the NG-RAN are described in other clauses of TS 38.401, such as clause 7, which lists the NG-RAN functions description, including NG-RAN sharing, Remote Interference Management, Cross-Link Interference Management, Support for Non-Public Networks, RACH Optimisation Function, Positioning, Support for NR MBS, and PCI Optimisation Function, among others.
+
+Therefore, the NG-RAN logical nodes and their functions are not explicitly stated in the provided context excerpts, but can be inferred from other clauses of TS 38.401.",,,
+gs-006,What is the Xn interface between gNBs used for?,"The Xn interface between gNBs is used to interconnect gNBs with each other, as well as to provide a point-to-point logical interface between two NG-RAN nodes, even in the absence of a physical direct connection between them [D1, D2].
+
+This interface supports the exchange of signalling information between two NG-RAN nodes, and the forwarding of PDUs to the respective tunnel endpoints [D2]. 
+
+The Xn interface is open, and it supports the exchange of signalling information between two NG-RAN nodes, and the forwarding of PDUs to the respective tunnel endpoints [D2].
+
+The Xn interface is used for procedures to support dual connectivity between NG-RAN nodes [D2]. 
+
+The Xn interface is used for procedures to support intra-NG-RAN mobility [D2]. 
+
+The Xn interface is used for separation of Xn interface Radio Network functionality and Transport Network functionality to facilitate introduction of future technology [D1]. 
+
+The Xn interface is used for inter-connection of NG-RAN nodes supplied by different manufacturers [D1]. 
+
+The Xn interface is used for support of continuation between NG-RAN nodes of the NG interface [D1].",,,
+gs-007,What is the difference between SA and NSA 5G deployment options?,"The difference between SA (Standalone) and NSA (Non-Standalone) 5G deployment options is primarily related to the network architecture and the way the user equipment (UE) interacts with the network.
+
+In an NSA deployment, the UE uses the same radio access technology (RAT) as the previous generation (4G) network, and the 5G network is built on top of the 4G network using a non-standalone architecture. This means that the UE can seamlessly switch between the 4G and 5G networks, and the 5G network does not require a separate connection to the 5G core network.
+
+In contrast, an SA deployment uses a standalone 5G architecture, where the UE connects directly to the 5G core network, and the 5G network is not built on top of the 4G network. This means that the UE must be capable of supporting the 5G RAT, and the 5G network requires a separate connection to the 5G core network.
+
+The key difference between SA and NSA deployment options is the level of network separation and the way the UE interacts with the network. SA deployment provides a more secure and isolated environment, while NSA deployment provides a more seamless and backward-compatible experience.
+
+[TS 22.261, TS 23.501], [TS 23.502]",,,
+gs-008,What is the NR MAC protocol and what are its main functions?,"The NR MAC protocol is specified in 3GPP TS 38.321 [D3]. 
+
+The main functions of the NR MAC protocol include: 
+
+- Medium Access Control (MAC) protocol specification [D3]; 
+- Mapping between a QoS flow and a data radio bearer [D3]; 
+- Transfer of data (user plane or control plane); 
+- Header compression and decompression using the ROHC protocol; 
+- Header compression and decompression using EHC protocol; 
+- Compression and decompression of uplink PDCP SDUs: DEFLATE based UDC only; 
+- Ciphering and deciphering; 
+- Integrity protection and integrity verification; 
+- Timer based SDU discard; 
+- For split bearers, routing; 
+- Duplication; 
+- Reordering and in-order delivery; 
+- Out-of-order delivery; 
+- Duplicate discarding [D3].",,,
+gs-009,What does the RRC protocol do in NR?,"The RRC protocol in NR is responsible for establishing and controlling RRC connections, which include paging, connection establishment, and security activation [D1]. 
+
+RRC connection establishment involves the establishment of SRB1, and the procedure is also used to transfer the initial NAS dedicated information from the UE to the network [D1]. 
+
+In NR sidelink communication/discovery, an RRC connection establishment is initiated only in the following cases: if configured by upper layers to transmit NR sidelink communication and related data is available for transmission, or if the frequency on which the UE is configured to transmit NR sidelink communication is included in sl-FreqInfoList/sl-FreqInfoListSizeExt [D5]. 
+
+The RRC protocol also includes the broadcast of system information, including ETWS notification, CMAS notification, and positioning assistance data [D1]. 
+
+However, the context does not provide enough information to determine the full scope of the RRC protocol's functions in NR.",,,
+gs-010,How is QoS managed in NG-RAN and 5GC?,"QoS (Quality of Service) management in NG-RAN and 5GC involves a two-step mapping of IP-flows to QoS flows and from QoS flows to DRBs (Data Radio Bearers) [D1]. 
+
+At the NAS (Non-Access Stratum) level, a QoS flow is characterized by a QoS profile provided by 5GC to NG-RAN and QoS rules provided by 5GC to the UE (User Equipment) [D1]. The QoS profile is used by NG-RAN to determine the treatment on the radio interface, while the QoS rules dictate the mapping between uplink User Plane traffic and QoS flows to the UE [D1].
+
+The QoS flow may be either GBR (Guaranteed Bit Rate) or Non-GBR (Non-Guaranteed Bit Rate) depending on its profile [D1]. The QoS profile of a QoS flow contains QoS parameters, such as a 5G QoS Identifier (5QI) and an Allocation and Retention Priority (ARP) [D1].
+
+In the QoS architecture in NG-RAN, packets belonging to different PDU (PDU Session) sessions are mapped to different DRBs [D2]. NAS-level packet filters in the UE and in the 5GC associate UL (Uplink) and DL (Downlink) packets with QoS Flows [D2]. AS-level mapping rules in the UE and in the NG-RAN associate UL and DL QoS Flows with DRBs [D2].
+
+The 5G QoS Flow or QoS Flow is the finest granularity for QoS forwarding treatment in the 5G System, and all traffic mapped to the same 5G QoS Flow receives the same forwarding treatment [D3].",,,
+gs-012,What is PDCP and what functions does it perform in NR?,"The Packet Data Convergence Protocol (PDCP) is a protocol used in 5G New Radio (NR) networks, supporting functions such as header compression and decompression, data transfer, ciphering and deciphering, integrity protection and integrity verification, and timer-based SDU discard, among others [D1].
+
+PDCP performs several key functions in NR, including header compression and decompression using the ROHC protocol, header compression and decompression using the EHC protocol, uplink data compression and decompression using the UDC protocol, ciphering and deciphering, integrity protection and integrity verification, and timer-based SDU discard [D1].
+
+In NR, PDCP is used for both control plane and user plane data transfer, and it supports functions such as duplication, reordering, and in-order delivery of PDCP PDUs [D1].
+
+For a NB-IoT UE that supports Control Plane CIoT EPS optimisation and S1-U data transfer or User Plane CIoT EPS optimisation, PDCP is not used until AS security is activated [D3]. 
+
+Note that the provided context does not contain enough information to provide a comprehensive answer to the question.",,,
+gs-014,What are the gNB-CU-CP and gNB-CU-UP and how do they differ?,"The gNB-CU-CP and gNB-CU-UP are logical nodes in the gNB (5G New Radio) architecture.
+
+The gNB-CU-CP (gNB Control-User Plane Component) is a logical node hosting the control plane part of the PDCP (Packet Data Convergence Protocol) protocol of the gNB-CU (5G New Radio User Plane) for an eNB (Evolved-NodeB) or a gNB acting as secondary node [D2]. It terminates the E1 interface connected with the gNB-CU-UP and the F1-C interface connected with the gNB-DU [D2].
+
+The gNB-CU-UP (gNB Control-User Plane User Plane) is a logical node hosting the user plane part of the PDCP protocol of the gNB-CU for an eNB, and the user plane part of the PDCP protocol and the SDAP (Session Description Protocol) protocol of the gNB-CU for a gNB [D2]. It terminates the E1 interface connected with the gNB-CU-CP and the F1-U interface connected with the gNB-DU [D2].
+
+The main difference between the gNB-CU-CP and gNB-CU-UP is that the gNB-CU-CP is responsible for the control plane, while the gNB-CU-UP is responsible for the user plane [D2].",,,
+gs-015,What is beamforming and beam management in 5G NR?,"Beamforming in 5G NR refers to the process of directing radio energy from an antenna to a specific user equipment (UE) device, improving signal strength and reducing interference. This is achieved by adjusting the phase and amplitude of the radio signals transmitted by the base station (gNB) to match the direction of the UE's antenna. [D3]
+
+Beam management in 5G NR is a related concept that involves the selection and optimization of the beamforming process to improve the overall performance of the wireless communication system. This includes tasks such as beam selection, beam tracking, and beam switching, which are performed by the gNB to adapt to changes in the UE's location and movement. [D3]
+
+AI/ML-based beam management utilizes intra-cell downlink beam prediction of the serving cell to reduce measurement/RS overhead and to improve the accuracy of beam selection. [D3]
+
+There is no clear definition of beamforming and beam management in the provided context documents. The provided information seems to be related to beam prediction and beam tracking, but it does not explicitly define beamforming and beam management.",,,
+gs-016,What is dual connectivity in NR and how does it work?,"Dual connectivity in NR involves two RAN nodes, i.e. Master and Secondary RAN nodes, in providing radio resources to a given UE (with active radio bearers), while a single S1-MME termination point exists for an UE between a MME and the E-UTRAN [D4]. 
+
+In this context, the Master RAN node performs all necessary N2 related functions such as mobility management, relaying of NAS signalling, etc. and manages the handling of user plane connection (e.g. transfer over N3) [D5]. The Master RAN node may use resources of another RAN node, the Secondary RAN node, to exchange User Plane traffic of an UE [D5]. 
+
+Dual connectivity defines Master Cell Group (MCG) bearer and Secondary Cell Group (SCG) bearer alternatives [D4]. For E-RABs configured as MCG bearers the U-plane termination points are maintained, whereas for E-RABs configured as SCG bearers it enables changing the U-plane termination point in the E-UTRAN by means of S1-MME signalling without changing the S1-MME termination point [D4]. 
+
+However, the Dual Connectivity function does not apply to the NR RedCap UE [D5].",,,
+gs-017,What is HARQ in NR and how does it work?,"HARQ (Hybrid Automatic Repeat Request) is a retransmission mechanism used in 5G New Radio (NR) to improve the reliability of data transmission. In NR, HARQ is used to retransmit data that has been lost or corrupted during transmission, allowing the receiver to recover the original data.
+
+HARQ works by maintaining a buffer of data at the transmitter and receiver, and using a sequence of redundancy versions to ensure that the received data is accurate. The HARQ process is associated with a HARQ buffer, which is used to store the data being transmitted. The HARQ process also maintains a state variable CURRENT_TX_NB, which indicates the number of transmissions that have taken place for the MAC PDU currently in the buffer, and a state variable HARQ_FEEDBACK, which indicates the HARQ feedback for the MAC PDU currently in the buffer [D1].
+
+When the HARQ process is established, CURRENT_TX_NB is initialized to 0. The sequence of redundancy versions is 0, 2, 3, 1, and the variable CURRENT_IRV is an index into the sequence of redundancy versions, which is updated modulo 4 [D1].
+
+The HARQ process can be configured to operate in different modes, including synchronous and asynchronous modes. In synchronous mode, the HARQ process is synchronized with the transmission of the MAC PDU, and the HARQ feedback is used to determine whether the data has been received correctly. In asynchronous mode, the HARQ process is not synchronized with the transmission of the MAC PDU, and the HARQ feedback is used to determine whether the data has been received correctly [D2].
+
+The HARQ process can also be configured to use different retransmission strategies, including non-adaptive and adaptive retransmission. Non-adaptive retransmission involves retransmitting the same data packet, while adaptive retransmission involves retransmitting a new packet with a different redundancy version [D2].
+
+In NR, the HARQ process is used in conjunction with the RLC (Radio Link Control) protocol to provide reliable data transmission. The RLC protocol is used to manage the transmission of data between the UE and the eNodeB, and the HARQ process is used to retransmit data that has been lost or corrupted during transmission [D3].
+
+Overall, HARQ is an important mechanism in NR that provides reliable data transmission and improves the overall performance of the system.",,,
+gs-018,What is the RLC protocol in NR and what are its three modes?,"The RLC (Radio Link Control) protocol in NR supports three transmission modes: Transparent Mode (TM), Unacknowledged Mode (UM), and Acknowledged Mode (AM). 
+
+The RLC configuration is per logical channel with no dependency on numerologies and/or transmission durations, and ARQ can operate on any of the numerologies and/or transmission durations the logical channel is configured with, [D3]. 
+
+For SRB0, paging and broadcast system information, TM mode is used, while for other SRBs AM mode is used, [D3]. 
+
+The main services and functions of the RLC sublayer depend on the transmission mode and include: transfer of upper layer PDUs, sequence numbering independent of the one in PDCP (UM and AM), and error correction through ARQ, [D3]. 
+
+However, the specific details of the three modes (TM, UM, and AM) and their characteristics are not explicitly stated in the provided context excerpts.",,,
+gs-019,How does NR handle random access — what is the RACH procedure?,"The NR random access procedure is outlined in TS 38.300 [D2]. The three steps of the non-contention based random access procedure are: 
+
+1) Random Access Preamble assignment via dedicated signalling in DL: 
+- eNB assigns to UE a non-contention Random Access Preamble (a Random Access Preamble not within the set sent in broadcast signalling). 
+- Signalled via: 
+  - HO command generated by target eNB and sent via source eNB for handover; 
+  - PDCCH in case of DL data arrival or positioning; 
+  - PDCCH for initial UL time alignment for a sTAG. 
+2) Random Access Preamble on RACH in uplink: 
+- UE transmits the assigned non-contention Random Access Preamble. 
+3) Random Access Response on DL-SCH: 
+- Semi-synchronous (within a flexible window of which the size is two or more TTIs) with message 1; 
+- No HARQ; 
+- Addressed to RA-RNTI on PDCCH; 
+- Conveys at least: 
+  - Timing Alignment information and initial UL grant for handover; 
+  - Timing Alignment information. 
+
+The applicability of SDT is determined by MAC entity according to clause 5.27, and the applicability of NSAG-ID is determined by upper layers when the Random Access procedure is initiated [D3].",,,
+gs-020,What is the LTE X2 interface used for?,"The LTE X2 interface is used for inter-eNB communication, specifically for exchanging necessary data for the setup of the X2 interface and implicitly performing an X2 reset, as well as for mobility parameter management, load management, and reporting of general error situations [D1, D3]. 
+
+It is also used for setting up the X2 interface, which allows for the exchange of necessary data for the eNB or en-gNB to set up the X2 interface [D1]. 
+
+Additionally, the X2 interface is used for energy saving, allowing the indication of cell activation/deactivation over the X2 interface [D1]. 
+
+However, the context does not provide enough information to determine the exact purpose of the X2 interface in the LTE network.",,,
+gs-022,What is SDAP and what role does it play in 5G?,"SDAP (Service Data Adaptation Protocol) is a protocol that maps between a QoS flow and a data radio bearer, marking QoS flow IDs (QFI) in both downlink (DL) and uplink (UL) packets. This protocol is part of the 5G System and is used to provide quality of service (QoS) forwarding treatment. SDAP is configured for each individual PDU session and is used to provide secure element and exchanges N1 signalling with the 5GC. 
+
+SDAP plays a crucial role in the 5G System by providing a unified authentication framework, supporting stateless NFs, and enabling concurrent access to local and centralized services. It is also used to support roaming with both Home routed traffic as well as Local breakout traffic in the visited PLMN. 
+
+SDAP is defined in TS 36.331 [D2] and TS 23.501 [D1, D3].",,,
+gs-023,What is NSSAI and how does 5G network slicing work at RAN level?,"NSSAI stands for Network Slice Specific Access Information, which is a set of information that defines the access information for a specific Network Slice (TS 23.501, [D1]).
+
+At the RAN level, network slicing is realized by providing different L1/L2 configurations to different network slices (TS 38.300, [D3]). The RAN part of a network slice consists of the radio access network, which includes the baseband unit, the radio unit, and the radio frequency unit (TS 38.300, [D3]).
+
+The support of network slicing relies on the principle that traffic for different slices is handled by different PDU sessions (TS 38.300, [D3]). The RAN part of a network slice is configured to support the specific access information for that slice, which includes the NSSAI (TS 23.501, [D1]).
+
+The NSSAI is used by the RAN for AMF selection, as described in clause 6.3.5 (TS 23.501, [D4]). The Requested NSSAI is used by the UE to request a specific access type, and the RAN uses this information to select the AMF (TS 23.501, [D4]).
+
+In summary, NSSAI is a set of information that defines the access information for a specific Network Slice, and it is used by the RAN to configure the radio access network and select the AMF for a specific access type.",,,
+gs-024,What is the SSB (Synchronization Signal Block) in NR?,"The SSB (Synchronization Signal Block) in NR refers to the block of symbols that carries the primary and secondary synchronization signals (PSS, SSS) and the Physical Broadcast Channel (PBCH) block. [D3]
+
+The SSB block is transmitted across 3 OFDM symbols and 240 subcarriers, but on one symbol leaving an unused part in the middle for SSS. [D3]
+
+The possible time locations of SSBs within a half-frame are determined by sub-carrier spacing and the periodicity of the half-frames where SSBs are transmitted is configured by the network. [D3]
+
+The SSB block is used for synchronization and is transmitted in different spatial directions (i.e. using different beams, spanning the coverage area of a cell) within the frequency span of a carrier. [D3]
+
+The SSB block is also used for NR Dual Connectivity, where it is transmitted in conjunction with the Secondary Cell Group (SCG) and the Secondary Cell (SCell). [D4]
+
+The SSB block is also used for NR-DC (NR Dual Connectivity) and is transmitted in conjunction with the Primary Cell (PCell) and the Secondary Cell (SCell). [D4]
+
+Note that the SSB block is not explicitly defined in the provided context excerpts, but rather is described in relation to other NR concepts such as SSB periodicity, SS/PBCH block measurement timing configuration, and NR Dual Connectivity.",,,
+gs-025,What are the differences between NR and LTE physical layer?,"The physical layer of 5G New Radio (NR) has several differences compared to the physical layer of Long-Term Evolution (LTE). 
+
+One key difference is the use of orthogonal frequency-division multiplexing (OFDM) in NR, whereas LTE uses a combination of OFDM and single-carrier frequency-division multiplexing (SC-FDMA) [D1, D2]. 
+
+Another difference is the use of a more efficient coding scheme in NR, such as low-density parity-check (LDPC) codes, whereas LTE uses turbo codes [D1, D3]. 
+
+Additionally, NR has a more flexible and adaptive transmission scheme, with the ability to switch between different transmission modes, such as high-speed data transmission and low-speed data transmission [D1, D3]. 
+
+It's worth noting that the physical layer of NR is designed to support a wider range of frequencies and higher data rates than LTE, with support for frequencies from 0.5 GHz to 100 GHz and peak data rates of up to 20 Gbps [D1, D3].",,,

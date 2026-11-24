@@ -491,6 +491,63 @@ Global RRF over the decomposed sub-queries was measured first and left both comp
 
 **Regression gate note:** against the previous `baseline.json` (built on the older 43,121-chunk index), the hybrid default showed MRR −0.099 and nDCG −0.057. The previous default shows the same drop on the new index (MRR 0.630, nDCG 0.664), so the cause is the corpus change, not hybrid search. The baseline was re-saved on 2026-11-20 on the rebuilt index with the hybrid default. A second run reproduced every retrieval metric exactly and the gate is green.
 
+## 6b. Sprint 4: grounded answers and judge reliability (2026-11-20)
+
+**Setup:** local path only. `llama3.2` (3B) answers with the new `[Dn]` citation prompt; `gemma3:4b` judges, a different model family so it isn't grading itself. Index: rebuilt 44,133 chunks with the BM25 hybrid default. Golden set: 30 queries. Results are in `data/eval/sprint4_eval.json`, `data/eval/judge_input_comparison.json` and `data/eval/claim_judge.json`.
+
+**Reproduce:**
+```
+python scripts/eval_retrieval.py --full --judge --judge-provider ollama --judge-model gemma3:4b --output data/eval/sprint4_eval.json
+python scripts/eval/rejudge.py          # legacy-truncated vs full judge input, same answers
+python scripts/eval/claim_judge.py      # cheap grounding checker vs LLM claim judge
+```
+
+### Harness fix: the judge was grading truncated answers
+
+Until this sprint the judge received `answer_preview`, the first 200 characters of each answer, plus the first 400 characters of each chunk. The average answer here is 1,075 characters, so the judge saw about a fifth of it. That made it likely to conclude an answer "lacks specific details", which was the July judge's most common note. Same 25 answers, same judge, only the input changed:
+
+| Judge input | Faithfulness | Correctness |
+|---|---|---|
+| Legacy (200-char answer, 400-char chunks) | 0.792 | 0.808 |
+| Full answer, full chunks | 0.904 | 0.928 |
+
+The July figures (0.64 / 0.387) came from a different responder and judge (`llama-3.3-70b`, since retired), so they can't be re-scored directly. Truncation biased them downward by an unknown amount. Treat them as superseded.
+
+### The local judge is too lenient to report as quality
+
+`gemma3:4b` gave 19 of 25 answers a perfect 5 on both axes, including two that are wrong on basics:
+
+- **gs-001** calls a gNB the "gNB Central Unit".
+- **gs-003** says E1 connects ng-eNB-CU and ng-eNB-DU; it connects gNB-CU-CP and gNB-CU-UP.
+
+Both reuse the context's own wording, attached to the wrong entity. **Faithfulness 0.904 / correctness 0.928 are therefore *not* quality claims.** They show that a small judge cannot be trusted without calibration. Calibration is now set up: `python scripts/eval/agreement.py export` wrote a blind 20-answer scoring sheet (`data/eval/human_calibration.csv`, with context in `human_calibration_context.md`). Once it is scored, `agreement.py score` reports quadratic-weighted κ between human and judge. **[RUN REQUIRED: human scoring]**
+
+### Claim-level grounding (ADR-013)
+
+Every in-corpus answer is split into sentences, citations are parsed, and each sentence is scored against its cited chunk (bge-small similarity plus lexical overlap; no LLM).
+
+| Metric (25 answers, 157 factual claims) | Value |
+|---|---|
+| Grounded ratio (claim matches some retrieved chunk) | 0.866 |
+| Citation coverage (claims carrying a valid `[Dn]`) | 0.685 |
+| Citation precision (cited chunk supports the claim) | 0.882 |
+| Invalid citations (point to no retrieved chunk) | 1 |
+| Fully grounded answers | 17 / 25 |
+| Out-of-corpus refusal (retrieval / answer) | 5/5 · 5/5 |
+| Generate latency p50 / p95 (local, Apple-silicon Air) | 30 s / 50 s |
+
+**Stability:** an earlier identical run that crashed before saving (see the numpy fix) reported citation precision 0.712 against 0.874 for this run, with the same questions at temperature 0.1. With N = 25, treat the grounding numbers as ±0.1.
+
+**How far to trust the checker:** a `gemma3:4b` claim judge labelled the same 155 claims. Agreement is 76.8% but **κ = 0.215** (slight), so the checker is **not** a validated hallucination detector.
+- **The checker is stricter overall:** 76% of claims supported, against the LLM's 89%.
+- **It misses wrong-entity claims:** the claim-level LLM caught claims that both the checker and the answer-level judge passed, such as the E1 error ("passage does not mention an E1 interface") and "SDAP is defined in TS 36.331".
+
+Use the checker as a citation-traceability signal in the UI, not as a verdict. A known gap: when the model cites a bulleted list once, each bullet counts as an uncited claim. A live `/query` for the AMF returned 9 grounded bullets at 0.11 citation coverage. The next step is to inherit a list's citation from its lead-in sentence. The hedge filter was widened after this review; the numbers above were recomputed from the saved claim scores, with no regeneration.
+
+### Golden-set expansion candidates
+
+`scripts/eval/generate_candidates.py` drafted 73 questions from substantive chunks across all 37 specs (`data/eval/golden_candidates.jsonl`, `status: needs_review`). None are used in any metric until a human accepts them and completes `relevant_sources`. Many are narrow single-message lookups, for example "What is the purpose of the RESOURCE STATUS UPDATE message in TS 38.473?". That is useful for retrieval coverage, but not representative of user questions.
+
 ## 7. Interpretation and next steps
 
 After both Track B increments, the honest picture:

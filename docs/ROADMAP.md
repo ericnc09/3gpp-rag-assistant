@@ -108,6 +108,16 @@ Milestones are defined by the outcome they unlock, the metric that confirms them
 
 ---
 
+### M12: Trustworthy answers (Sprint 4)
+**Outcome:** Every answer sentence carries a checkable citation, and answer-quality numbers are trusted only after calibration against human judgment.
+**Status:** In progress (2026-11-20, ADR-013).
+- **Done:** `[Dn]` claim citations, a grounding report in the API and a meter in the local UI, and the judge-truncation fix.
+- **Measured (local llama3.2):** grounded ratio 0.866, citation precision 0.882, citation coverage 0.685.
+- **Finding:** the local `gemma3:4b` judge is too lenient to publish.
+- **Remaining:** human calibration κ (sheet exported), entity-substitution detection, a cloud-path judge run, and review of 73 golden-set candidates.
+
+---
+
 ## What this roadmap does not include
 
 - User counts, adoption numbers, or revenue. This is an open-source personal project. Usage metrics are not the measure of success for this tool — eval quality, security posture, and architectural clarity are.
@@ -138,4 +148,5 @@ Milestones are defined by outcome and success criteria, not sprint dates. Full m
 | M9: Retrieval quality v2 — Phase 2, Track B | In progress | Track B: hit-rate@5 0.96, Recall@5 0.737 (from 0.88 / 0.64). Sprint 1 (ADR-012): BM25 hybrid default — on the rebuilt 44k-chunk index Recall@5 0.663 → 0.710, hit-rate@5 0.84 → 0.96; cross-encoder rerank available (best MRR/nDCG, off by default). Remaining: recall ≥ 0.80 via stronger reranker / bge-base / graded labels |
 | M10: Release intelligence — Phase 2, Track C | Planned | Version-aware index; release-delta answers citing Change Requests |
 | M11: Second corpus validated — Phase 2, Track D | Planned | NIST SP 800-53 indexed and queryable through CorpusConfig |
+| M12: Trustworthy answers — claim citations + calibrated judging | In progress | `[Dn]` citations and a grounding check per sentence (grounded ratio 0.866, citation precision 0.882 locally); judge-truncation bug fixed; human κ for the judge pending |
 ```

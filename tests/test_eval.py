@@ -404,3 +404,28 @@ class TestEvalEndpoint:
         monkeypatch.chdir(tmp_path)
         data = client.get("/").json()
         assert "eval" in data
+
+
+# ---------------------------------------------------------------------------
+# Judge input (the 200-char truncation fix)
+# ---------------------------------------------------------------------------
+
+class TestBuildJudgeInput:
+    def _result(self):
+        return {
+            "answer": "A" * 900,
+            "answer_preview": "A" * 200,
+            "answer_docs": [{"source": "38300.docx", "text": "x" * 1000}] * 5,
+        }
+
+    def test_full_input_has_whole_answer_and_chunks(self):
+        from scripts.eval_retrieval import build_judge_input
+        context, answer = build_judge_input(self._result())
+        assert len(answer) == 900
+        assert context.count("x" * 1000) == 5 and "[D1]" in context
+
+    def test_legacy_input_reproduces_truncation(self):
+        from scripts.eval_retrieval import build_judge_input
+        context, answer = build_judge_input(self._result(), legacy=True)
+        assert len(answer) == 200
+        assert "x" * 401 not in context

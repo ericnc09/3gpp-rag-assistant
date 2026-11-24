@@ -412,7 +412,8 @@ def evaluate_answer_quality(answer: str, case: Dict, docs: List[Dict]) -> Dict:
 
 
 def run_answer_eval(
-    retriever: DocumentRetriever, retrieval_results: List[Dict], cases: List[Dict]
+    retriever: DocumentRetriever, retrieval_results: List[Dict], cases: List[Dict],
+    answer_model: Optional[str] = None,
 ) -> List[Dict]:
     """Enhance retrieval results with heuristic answer quality scores."""
     try:
@@ -422,7 +423,7 @@ def run_answer_eval(
         print(f"\n  Could not import LLM modules: {e}")
         return retrieval_results
 
-    llm = OllamaLLM()
+    llm = OllamaLLM(model=answer_model) if answer_model else OllamaLLM()
     if not llm.is_available():
         print(f"\n  Ollama not available — skipping answer quality evaluation")
         print(f"  Start Ollama: ollama serve  |  Pull model: ollama pull {llm.model}")
@@ -439,12 +440,26 @@ def run_answer_eval(
         print("-" * 60)
 
         t0 = time.time()
+        chain.clear_history()  # each golden case is an independent question
         rag_result = chain.query(result["query"])
         gen_time = round(time.time() - t0, 4)
 
         docs = result.get("docs", [])
         aq = evaluate_answer_quality(rag_result["answer"], case, docs)
         aq["generate_time"] = gen_time
+        # Full answer kept for the judge (it previously saw only the
+        # 200-char preview) and for human calibration sheets.
+        aq["answer"] = rag_result["answer"]
+        # The judge must see the chunks the answer was generated from;
+        # retrieval is deterministic, so these are the chain's own chunks.
+        aq["answer_docs"] = docs
+        grounding = rag_result.get("grounding")
+        if grounding is not None:
+            aq["grounding"] = {k: v for k, v in grounding.items()}
+            print(f"  Grounding:         {grounding['grounded_ratio']} grounded, "
+                  f"{grounding['citation_coverage']} cited, "
+                  f"{grounding['invalid_citations']} invalid citations "
+                  f"({grounding['n_claims']} claims)")
 
         icon = "✅" if aq["answer_pass"] else "❌"
         print(f"  Answer relevance:  {aq['answer_relevance']:.1%}")
@@ -459,11 +474,33 @@ def run_answer_eval(
     return enriched
 
 
+def build_judge_input(result: Dict, legacy: bool = False) -> tuple:
+    """(context, answer) exactly as the judge will see them.
+
+    ``legacy=True`` reproduces the pre-2026-11 harness input — the 200-char
+    answer preview and the first 400 chars of each chunk — so the effect of
+    that truncation can be measured (EVAL_REPORT §6b). The default sends the
+    full answer and full chunks.
+    """
+    docs = result.get("answer_docs") or result.get("docs", [])
+    if legacy:
+        context = "\n".join(
+            f"[{j+1}] (Source: {d['source']}) {d['text'][:400]}"
+            for j, d in enumerate(docs[:5])
+        )
+        return context, result.get("answer_preview", "")
+    context = "\n\n".join(
+        f"[D{j+1}] (Source: {d['source']}) {d['text']}" for j, d in enumerate(docs[:5])
+    )
+    return context, result.get("answer") or result.get("answer_preview", "")
+
+
 def run_llm_judge_eval(
     retrieval_results: List[Dict],
     cases: List[Dict],
     provider: str = "groq",
     model: Optional[str] = None,
+    legacy_input: bool = False,
 ) -> List[Dict]:
     """[RUN REQUIRED] Enrich retrieval results with LLM-judge faithfulness + correctness.
 
@@ -498,14 +535,8 @@ def run_llm_judge_eval(
     for i, (result, case) in enumerate(zip(retrieval_results, cases[:len(retrieval_results)]), 1):
         print(f"\n  Judging {i}/{len(retrieval_results)}: {result['query'][:60]}")
 
-        # Reconstruct context from docs
-        docs = result.get("docs", [])
-        context = "\n".join(
-            f"[{j+1}] (Source: {d['source']}) {d['text'][:400]}"
-            for j, d in enumerate(docs[:5])
-        )
+        context, answer = build_judge_input(result, legacy=legacy_input)
         # We need an answer to judge — skip if answer not available
-        answer = result.get("answer_preview", "")
         if not answer:
             enriched.append(result)
             continue
@@ -685,6 +716,33 @@ def print_summary(results: List[Dict], full_eval: bool) -> Dict:
             "avg_score":            round(avg_score, 3),
         }
 
+    # Claim-level grounding aggregate (ADR-013) — in-corpus answers with at
+    # least one factual claim.
+    grounding_summary: Dict = {}
+    g_rows = [r["grounding"] for r in in_corpus if r.get("grounding", {}).get("n_claims")]
+    if g_rows:
+        def g_avg(key):
+            vals = [g[key] for g in g_rows if g.get(key) is not None]
+            return round(sum(vals) / len(vals), 3) if vals else None
+
+        total_claims = sum(g["n_claims"] for g in g_rows)
+        grounding_summary = {
+            "answers":             len(g_rows),
+            "claims":              total_claims,
+            "avg_grounded_ratio":  g_avg("grounded_ratio"),
+            "avg_citation_coverage": g_avg("citation_coverage"),
+            "avg_citation_precision": g_avg("citation_precision"),
+            "invalid_citations":   sum(g["invalid_citations"] for g in g_rows),
+            "answers_fully_grounded": sum(1 for g in g_rows if g["grounded_ratio"] == 1.0),
+        }
+        print(f"\nClaim-level Grounding [embedding + lexical check; ADR-013] "
+              f"(N={len(g_rows)} answers, {total_claims} claims)")
+        print(f"  Avg grounded ratio:     {grounding_summary['avg_grounded_ratio']}")
+        print(f"  Avg citation coverage:  {grounding_summary['avg_citation_coverage']}")
+        print(f"  Avg citation precision: {grounding_summary['avg_citation_precision']}")
+        print(f"  Invalid citations:      {grounding_summary['invalid_citations']}")
+        print(f"  Fully grounded answers: {grounding_summary['answers_fully_grounded']}/{len(g_rows)}")
+
     # LLM-judge aggregate (only if scores present)
     judge_scores = [r["llm_judge"] for r in results if r.get("llm_judge", {}).get("parse_ok")]
     judge_summary: Dict = {}
@@ -732,8 +790,34 @@ def print_summary(results: List[Dict], full_eval: bool) -> Dict:
         "refusal":    refusal_summary,
         "answer":     answer_summary,
         "llm_judge":  judge_summary,
+        "grounding":  grounding_summary,
         "latency":    benchmarks,
     }
+
+
+def _json_default(obj):
+    """json.dumps fallback for numpy scalars/arrays."""
+    if hasattr(obj, "item"):
+        return obj.item()
+    if hasattr(obj, "tolist"):
+        return obj.tolist()
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+
+def _serialisable_case(result: Dict) -> Dict:
+    """Case dict for the results file: drop chunk texts, keep chunk refs.
+
+    ``answer_doc_refs`` lets claim_judge.py / agreement.py re-fetch the exact
+    chunks from the index without storing 5 KB of spec text per case.
+    """
+    out = {k: v for k, v in result.items() if k not in ("docs", "answer_docs")}
+    docs = result.get("answer_docs") or []
+    if docs:
+        out["answer_doc_refs"] = [
+            {"id": d.get("id"), "source": d.get("source"), "chunk_index": d.get("chunk_index")}
+            for d in docs
+        ]
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -889,6 +973,15 @@ def main():
         help="Force cross-encoder reranking on/off (default: settings.rerank)",
     )
     parser.add_argument(
+        "--legacy-judge-input", action="store_true",
+        help="Judge the 200-char answer preview and 400-char chunk excerpts "
+             "(the pre-2026-11 harness input) to measure the truncation effect",
+    )
+    parser.add_argument(
+        "--answer-model", default=None,
+        help="Ollama model that generates answers in --full (default: settings.llm_model)",
+    )
+    parser.add_argument(
         "--ablation", action="store_true",
         help="Run the retrieval-only ablation (dense -> +Track B -> +BM25 -> "
              "+rerank) and write data/eval/ablation.json",
@@ -951,7 +1044,8 @@ def main():
     # Heuristic answer quality (optional)
     final_results = retrieval_results
     if args.full:
-        final_results = run_answer_eval(retriever, retrieval_results, test_cases)
+        final_results = run_answer_eval(retriever, retrieval_results, test_cases,
+                                        answer_model=args.answer_model)
 
     # LLM-judge path (optional, [RUN REQUIRED] without live LLM)
     if args.judge:
@@ -959,6 +1053,7 @@ def main():
             final_results, test_cases,
             provider=args.judge_provider,
             model=args.judge_model,
+            legacy_input=args.legacy_judge_input,
         )
 
     summary = print_summary(final_results, full_eval=args.full)
@@ -981,15 +1076,16 @@ def main():
                 "dataset":       dataset_label,
             },
             "summary": summary,
-            "cases": [
-                {k: v for k, v in r.items() if k != "docs"}
-                for r in final_results
-            ],
+            "cases": [_serialisable_case(r) for r in final_results],
         }
         out_path = Path(args.output or "data/eval_results.json")
         out_path.parent.mkdir(parents=True, exist_ok=True)
+        # Serialise to a string first so a bad value can't leave a truncated
+        # file behind, and coerce numpy scalars (np.bool_, np.float32) that
+        # numerical code can leak into result dicts.
+        text = json.dumps(save_data, indent=2, default=_json_default)
         with open(out_path, "w") as f:
-            json.dump(save_data, f, indent=2)
+            f.write(text)
         print(f"Results saved to {out_path}")
 
     # Save baseline

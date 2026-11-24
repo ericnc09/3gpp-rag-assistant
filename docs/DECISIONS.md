@@ -416,3 +416,43 @@ Hybrid fixes four queries (beam management, dual connectivity, X2, SSB) and lose
 M9's Recall@5 ≥ 0.80 target is still not met (0.710). Remaining levers: a telecom-aware or larger reranker (bge-reranker-base), the bge-base rebuild (ADR-003), and graded-relevance label review. The rebuilt index uses the latest spec versions (44,133 chunks vs 43,121), and the previous default scores lower on it than on the old index. The regression baseline was therefore re-saved on the rebuilt index with the hybrid default (2026-11-20: hit-rate@5 0.96, Recall@5 0.71, MRR 0.621, nDCG@5 0.698). It reproduced exactly on a second run, and the gate is green.
 
 ---
+
+## ADR-013: Claim-level citations with a cheap grounding check; LLM judges must be calibrated
+
+**Status:** Decided
+**Date:** 2026-11-20 (Sprint 4 — trustworthy answers)
+**Context source:** `src/core/grounding.py`; `src/core/rag_chain.py`; `scripts/eval/claim_judge.py`; `scripts/eval/agreement.py`; `docs/EVAL_REPORT.md` §6b
+
+### Context
+
+Answer-level faithfulness ("0.64") cannot tell a reader *which* sentence to doubt. The judge behind that number was also measured on truncated input (200-char answers, 400-char chunks).
+
+### Options considered
+
+| Option | Assessment |
+|---|---|
+| NLI entailment model per claim | Most principled; needs another model download and CPU latency per sentence. Deferred |
+| LLM claim judge in the request path | Catches entity swaps, but adds an LLM call per sentence. Kept for offline eval only |
+| Embedding + lexical similarity against the cited chunk | Chosen for the request path: reuses bge-small, deterministic, about 0.1 s per answer |
+
+### Decision
+
+- **Citation format.** The prompt asks for `[Dn]` markers. 3GPP chunks contain their own `[17]`-style reference markers, and models copy them, so a distinct marker avoids the collision.
+- **Grounding report.** `GroundingChecker` splits the answer into claims, ignores hedges about the context, and reports grounded ratio, citation coverage, citation precision and invalid citations. The API returns it, and the local UI shows a grounding meter with the sentences to check.
+- **Offline validation.** An LLM claim judge (`claim_judge.py`) checks the cheap checker. Human scoring (`agreement.py`) calibrates the answer-level judge.
+
+### Tradeoff accepted
+
+- **Similarity is not entailment.** The checker passes fluent wrong-entity sentences built from context wording. Measured agreement with an LLM claim judge is κ = 0.215, so the UI wording says "matches a retrieved source", never "verified".
+- **The local judge is lenient.** `gemma3:4b` gave 19 of 25 answers perfect scores, including two factually wrong ones. Judge scores are not published as quality until human κ is measured.
+- **Coverage gaps.** The cloud Streamlit app does not run the checker; it has no bge-small. The streaming endpoint sends the report as a final `grounding` event.
+
+### Outcome
+
+Grounded ratio is 0.866, citation coverage 0.685 and citation precision 0.882 over 157 claims, with 1 invalid citation. The judge-input fix moves the same judge from 0.79 to 0.90 on faithfulness for the same answers. Human calibration is ready to run (20-answer blind sheet). Open items:
+- human κ
+- an NLI or claim-judge check for entity substitution
+- judging the cloud path (needs a Groq key)
+- reviewing the 73 golden-set candidates
+
+---
