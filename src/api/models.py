@@ -59,6 +59,9 @@ class SourceDocument(BaseModel):
     generation: Optional[str] = Field(default=None, description="'5G' or 'LTE'")
     spec_number: Optional[str] = Field(default=None, description="e.g. '38.300'")
     spec_title: Optional[str] = Field(default=None, description="Human-readable spec title")
+    clause: Optional[str] = Field(default=None, description="Clause number, e.g. '8.4.1.1' (clause index only)")
+    clause_title: Optional[str] = Field(default=None, description="Clause heading")
+    clause_ref: Optional[str] = Field(default=None, description="Citation form, e.g. 'TS 38.401 §8.4.1.1'")
 
 
 class GroundingClaim(BaseModel):
@@ -91,6 +94,10 @@ class QueryResponse(BaseModel):
     generate_time: float = Field(description="LLM generation time in seconds")
     grounding: Optional[GroundingReport] = Field(
         default=None, description="Claim-level citation/grounding check (ADR-013)"
+    )
+    search_query: Optional[str] = Field(
+        default=None,
+        description="What retrieval searched for: the question, or a standalone rewrite of a follow-up (ADR-014)",
     )
 
 

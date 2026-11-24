@@ -31,12 +31,15 @@ Guidelines:
 class OllamaLLM:
     """Local LLM client via Ollama - zero cost, no API key required"""
 
+    num_ctx: int = 8192  # class default so partially built test doubles work
+
     def __init__(
         self,
         model: str = "llama3.2",
         base_url: str = "http://localhost:11434",
         temperature: float = 0.1,
         max_tokens: int = 1000,
+        num_ctx: int = 8192,
     ):
         """
         Initialize Ollama LLM client.
@@ -46,6 +49,8 @@ class OllamaLLM:
             base_url: Ollama server URL (default: local)
             temperature: Sampling temperature (lower = more deterministic)
             max_tokens: Maximum tokens in the response
+            num_ctx: Context window to request. Ollama's 4k default can
+                silently truncate whole-clause context (ADR-014).
         """
         try:
             import ollama
@@ -59,6 +64,7 @@ class OllamaLLM:
         self.base_url = base_url
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.num_ctx = num_ctx
 
         # Point the ollama client at the right host
         self._client = self._ollama.Client(host=base_url)
@@ -109,6 +115,7 @@ class OllamaLLM:
                 options={
                     "temperature": self.temperature,
                     "num_predict": self.max_tokens,
+                    "num_ctx": self.num_ctx,
                 },
             )
             answer = response.message.content
@@ -146,6 +153,7 @@ class OllamaLLM:
                 options={
                     "temperature": self.temperature,
                     "num_predict": self.max_tokens,
+                    "num_ctx": self.num_ctx,
                 },
             ):
                 yield chunk.message.content

@@ -200,6 +200,18 @@ class TestQuery:
         assert data["retrieve_time"] >= 0
         assert data["generate_time"] >= 0
 
+    def test_query_returns_search_query(self, client, mock_rag_chain):
+        mock_rag_chain.query.return_value = {
+            **mock_rag_chain.query.return_value,
+            "search_query": "What is the role of the UPF in 5GS?",
+            "sources": [{"source": "23501.docx", "similarity": 0.8, "text": "t",
+                         "spec_number": "23.501", "clause": "6.2.3",
+                         "clause_title": "UPF", "clause_ref": "TS 23.501 §6.2.3"}],
+        }
+        data = client.post("/query", json={"question": "And the UPF?"}).json()
+        assert data["search_query"] == "What is the role of the UPF in 5GS?"
+        assert data["sources"][0]["clause_ref"] == "TS 23.501 §6.2.3"
+
     def test_query_rejects_short_question(self, client):
         r = client.post("/query", json={"question": "hi"})
         assert r.status_code == 422

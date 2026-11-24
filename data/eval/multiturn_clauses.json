@@ -1,0 +1,162 @@
+{
+  "evaluated_at": "2026-11-24T05:08:21.623546+00:00",
+  "config": {
+    "cases": 10,
+    "rewrite_model": "llama3.2",
+    "collection": "3gpp_clauses",
+    "hybrid": true,
+    "rerank": false
+  },
+  "strategies": [
+    {
+      "strategy": "raw",
+      "hit_rate_at_5": 0.8,
+      "recall_at_5": 0.667,
+      "mrr": 0.675,
+      "ndcg_at_5": 0.665,
+      "pass_rate": 0.6,
+      "latency_p50_s": 0.1417,
+      "latency_p95_s": 0.3233,
+      "per_case_recall": {
+        "mt-01": 0.0,
+        "mt-02": 1.0,
+        "mt-03": 0.5,
+        "mt-04": 0.0,
+        "mt-05": 1.0,
+        "mt-06": 0.6666666666666666,
+        "mt-07": 1.0,
+        "mt-08": 1.0,
+        "mt-09": 0.5,
+        "mt-10": 1.0
+      }
+    },
+    {
+      "strategy": "fallback",
+      "hit_rate_at_5": 0.9,
+      "recall_at_5": 0.767,
+      "mrr": 0.8,
+      "ndcg_at_5": 0.802,
+      "pass_rate": 1.0,
+      "latency_p50_s": 0.1105,
+      "latency_p95_s": 0.1985,
+      "per_case_recall": {
+        "mt-01": 1.0,
+        "mt-02": 1.0,
+        "mt-03": 1.0,
+        "mt-04": 0.0,
+        "mt-05": 1.0,
+        "mt-06": 0.6666666666666666,
+        "mt-07": 1.0,
+        "mt-08": 0.5,
+        "mt-09": 0.5,
+        "mt-10": 1.0
+      }
+    },
+    {
+      "strategy": "llm",
+      "hit_rate_at_5": 1.0,
+      "recall_at_5": 0.817,
+      "mrr": 0.9,
+      "ndcg_at_5": 0.922,
+      "pass_rate": 1.0,
+      "latency_p50_s": 0.1263,
+      "latency_p95_s": 0.2214,
+      "per_case_recall": {
+        "mt-01": 1.0,
+        "mt-02": 1.0,
+        "mt-03": 0.5,
+        "mt-04": 0.5,
+        "mt-05": 1.0,
+        "mt-06": 0.6666666666666666,
+        "mt-07": 1.0,
+        "mt-08": 1.0,
+        "mt-09": 0.5,
+        "mt-10": 1.0
+      }
+    },
+    {
+      "strategy": "oracle",
+      "hit_rate_at_5": 0.8,
+      "recall_at_5": 0.717,
+      "mrr": 0.7,
+      "ndcg_at_5": 0.741,
+      "pass_rate": 1.0,
+      "latency_p50_s": 0.1213,
+      "latency_p95_s": 0.165,
+      "per_case_recall": {
+        "mt-01": 0.5,
+        "mt-02": 1.0,
+        "mt-03": 1.0,
+        "mt-04": 0.0,
+        "mt-05": 1.0,
+        "mt-06": 0.6666666666666666,
+        "mt-07": 1.0,
+        "mt-08": 1.0,
+        "mt-09": 0.0,
+        "mt-10": 1.0
+      }
+    }
+  ],
+  "rewrites": [
+    {
+      "id": "mt-01",
+      "followup": "Which application protocol runs on its control plane?",
+      "llm_rewrite": "What is the application protocol that runs on the control-plane part of the F1 interface in NG-RAN?",
+      "llm_method": "llm"
+    },
+    {
+      "id": "mt-02",
+      "followup": "How does it select an SMF for a PDU session?",
+      "llm_rewrite": "How does the AMF select an SMF for a PDU session?",
+      "llm_method": "llm"
+    },
+    {
+      "id": "mt-03",
+      "followup": "How does the UE get back to connected mode from it?",
+      "llm_rewrite": "How does the UE transition from RRC_INACTIVE to connected mode in NR?",
+      "llm_method": "llm"
+    },
+    {
+      "id": "mt-04",
+      "followup": "Which of its procedures sets up a bearer context?",
+      "llm_rewrite": "Which procedure of E1AP sets up a bearer context?",
+      "llm_method": "llm"
+    },
+    {
+      "id": "mt-05",
+      "followup": "Which header compression protocols does it support?",
+      "llm_rewrite": "What header compression protocols does NR PDCP support?",
+      "llm_method": "llm"
+    },
+    {
+      "id": "mt-06",
+      "followup": "How is a handover prepared over it?",
+      "llm_rewrite": "How is a handover prepared over Xn-C?",
+      "llm_method": "llm"
+    },
+    {
+      "id": "mt-07",
+      "followup": "And the UPF?",
+      "llm_rewrite": "What is the role of the UPF in 5GS?",
+      "llm_method": "llm"
+    },
+    {
+      "id": "mt-08",
+      "followup": "How does a handover work over it?",
+      "llm_rewrite": "How does a handover work over S1?",
+      "llm_method": "llm"
+    },
+    {
+      "id": "mt-09",
+      "followup": "How many processes can there be in the downlink?",
+      "llm_rewrite": "How many parallel HARQ processes can there be in the downlink HARQ entity per serving cell in the NR MAC layer?",
+      "llm_method": "llm"
+    },
+    {
+      "id": "mt-10",
+      "followup": "What about the policies it provides to the UE?",
+      "llm_rewrite": "What policies does the Policy Control Function (PCF) provide to the User Equipment (UE)?",
+      "llm_method": "llm"
+    }
+  ]
+}

@@ -370,6 +370,7 @@ Milestones are defined by outcome and success criteria, not sprint dates. Full m
 | M10: Release intelligence — Phase 2, Track C | Planned | Version-aware index; release-delta answers citing Change Requests |
 | M11: Second corpus validated — Phase 2, Track D | Planned | NIST SP 800-53 indexed and queryable through CorpusConfig |
 | M12: Trustworthy answers — claim citations + calibrated judging | In progress | `[Dn]` citations and a grounding check per sentence (grounded ratio 0.866, citation precision 0.882 locally); judge-truncation bug fixed; human κ for the judge pending |
+| M13: Conversational + clause-aware RAG | In progress | Follow-up rewriting (multi-turn Recall@5 0.48 → 0.77); clause chunks with structural headers: Recall@5 0.737, MRR 0.750 vs 0.710 / 0.621 for fixed chunks; clause citations + small-to-big. Default index switch pending |
 
 ---
 

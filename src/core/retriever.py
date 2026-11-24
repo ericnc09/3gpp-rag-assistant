@@ -22,9 +22,41 @@ import logging
 from src.config import settings
 from src.core.embeddings import LocalEmbeddingGenerator
 from src.core.retrieval_fusion import fused_retrieve, rrf_merge
-from src.core.vector_store import VectorStore
+from src.core.clause_chunker import format_clause_ref, strip_header
+from src.core.vector_store import CLAUSE_META_KEYS, VectorStore
 
 logger = logging.getLogger(__name__)
+
+
+def _join_parts(bodies: List[str]) -> str:
+    """Concatenate consecutive clause parts, dropping the line each part
+    repeats from the previous one (the chunker's short-block overlap)."""
+    lines: List[str] = []
+    for body in bodies:
+        part_lines = body.split("\n")
+        if lines and part_lines and part_lines[0] == lines[-1]:
+            part_lines = part_lines[1:]
+        lines.extend(part_lines)
+    return "\n".join(lines)
+
+
+def _has_duplicate_sections(docs: List[Dict]) -> bool:
+    ids = [d["section_id"] for d in docs if d.get("section_id")]
+    return len(ids) != len(set(ids))
+
+
+def _dedupe_sections(docs: List[Dict]) -> List[Dict]:
+    """Keep the first (best-ranked) chunk of each clause."""
+    seen = set()
+    out = []
+    for d in docs:
+        sid = d.get("section_id")
+        if sid and sid in seen:
+            continue
+        if sid:
+            seen.add(sid)
+        out.append(d)
+    return out
 
 
 class DocumentRetriever:
@@ -184,15 +216,25 @@ class DocumentRetriever:
         def search_fn(text: str, n: int) -> List[Dict]:
             return search(text, n, where_filter, source_filter)
 
-        retrieved_docs = fused_retrieve(
-            query,
-            search_fn,
-            k,
-            expand=self.expand,
-            decompose=self.decompose,
-            rerank_fn=self.reranker if self.rerank else None,
-            rerank_depth=settings.rerank_depth,
-        )
+        def run(n: int) -> List[Dict]:
+            return fused_retrieve(
+                query,
+                search_fn,
+                n,
+                expand=self.expand,
+                decompose=self.decompose,
+                rerank_fn=self.reranker if self.rerank else None,
+                rerank_depth=settings.rerank_depth,
+            )
+
+        retrieved_docs = run(k)
+        # Clause index (ADR-014): two parts of one clause would take two of
+        # the k slots and collapse into one context document after
+        # small-to-big expansion. Keep the best part per clause and refill
+        # from a deeper list. Fixed-size chunks have no section_id, so this
+        # never triggers there.
+        if settings.section_dedupe and _has_duplicate_sections(retrieved_docs):
+            retrieved_docs = _dedupe_sections(run(k * 3))[:k]
 
         logger.info(f"Retrieved {len(retrieved_docs)} documents")
         return retrieved_docs
@@ -306,7 +348,7 @@ class DocumentRetriever:
 
     @staticmethod
     def _to_doc(chunk_id, text: str, metadata: Dict, similarity: float) -> Dict:
-        return {
+        doc = {
             "id": chunk_id,
             "text": text,
             "source": metadata.get("source", "unknown"),
@@ -317,6 +359,79 @@ class DocumentRetriever:
             "spec_number": metadata.get("spec_number", "unknown"),
             "spec_title": metadata.get("spec_title", "unknown"),
         }
+        # Clause-chunk fields (ADR-014), present only in clause indexes.
+        for key in CLAUSE_META_KEYS:
+            if key in metadata:
+                doc[key] = metadata[key]
+        return doc
+
+    def expand_to_clauses(
+        self, documents: List[Dict], max_chars: Optional[int] = None
+    ) -> List[Dict]:
+        """Small-to-big: replace each retrieved clause part with its whole clause.
+
+        Retrieval ranks small chunks (precise matching); generation gets the
+        full clause they belong to, so a procedure split across parts reaches
+        the LLM intact. Parts of the same clause retrieved more than once are
+        merged into one context document at the best rank. Clauses longer
+        than ``max_chars`` are windowed around the retrieved part. Documents
+        without clause metadata (fixed-size indexes) pass through unchanged.
+        """
+        max_chars = max_chars or settings.clause_expand_max_chars
+        seen: Dict[str, Dict] = {}
+        out: List[Dict] = []
+        for doc in documents:
+            section = doc.get("section_id")
+            if not section:
+                out.append(doc)
+                continue
+            if section in seen:
+                seen[section].setdefault("merged_ids", []).append(doc.get("id"))
+                continue
+            expanded = dict(doc)
+            if int(doc.get("n_parts") or 1) > 1:
+                expanded["text"] = self._clause_text(doc, max_chars)
+                expanded["expanded"] = True
+            seen[section] = expanded
+            out.append(expanded)
+        return out
+
+    def _clause_text(self, doc: Dict, max_chars: int) -> str:
+        try:
+            got = self.vector_store.collection.get(
+                where={"section_id": doc["section_id"]},
+                include=["documents", "metadatas"],
+            )
+        except Exception as exc:  # noqa: BLE001 - fall back to the chunk itself
+            logger.warning(f"Clause expansion failed for {doc['section_id']}: {exc}")
+            return doc["text"]
+        parts = sorted(
+            zip(got["documents"], got["metadatas"]), key=lambda pm: pm[1].get("part", 0)
+        )
+        if not parts:
+            return doc["text"]
+        header = doc["text"][: int(doc.get("header_len") or 0)]
+        bodies = [strip_header(text, meta) for text, meta in parts]
+        hit = next(
+            (i for i, (_, meta) in enumerate(parts) if meta.get("part") == doc.get("part")), 0
+        )
+        # Grow a window of parts outward from the retrieved one until the
+        # budget is used, so the matched text is always included.
+        lo = hi = hit
+        size = len(bodies[hit])
+        while True:
+            grew = False
+            if hi + 1 < len(bodies) and size + len(bodies[hi + 1]) <= max_chars:
+                hi += 1
+                size += len(bodies[hi])
+                grew = True
+            if lo > 0 and size + len(bodies[lo - 1]) <= max_chars:
+                lo -= 1
+                size += len(bodies[lo])
+                grew = True
+            if not grew:
+                break
+        return header + _join_parts(bodies[lo : hi + 1])
 
     def format_context(self, documents: List[Dict]) -> str:
         """Format retrieved chunks into a numbered context block for the LLM prompt.
@@ -337,6 +452,9 @@ class DocumentRetriever:
             spec_info = ""
             if doc.get("spec_number") and doc["spec_number"] != "unknown":
                 spec_info = f", Spec: TS {doc['spec_number']}"
+            clause_ref = format_clause_ref(doc)
+            if clause_ref:
+                spec_info = f", Clause: {clause_ref} {doc.get('clause_title', '')}".rstrip()
             context_parts.append(
                 f"[Document {i}] (Source: {doc['source']}{spec_info}, Similarity: {doc['similarity']:.3f})\n"
                 f"{doc['text']}\n"

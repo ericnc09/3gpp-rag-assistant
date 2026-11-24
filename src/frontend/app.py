@@ -357,9 +357,13 @@ def render_sources(sources: list):
             if s.get("spec_number") and s["spec_number"] != "unknown":
                 gen = s.get("generation", "")
                 dom = s.get("domain", "")
+                # Clause index (ADR-014): cite "TS 38.401 §8.4.1.1 EN-DC".
+                label = f'TS {s["spec_number"]}'
+                if s.get("clause_ref"):
+                    label = f'{s["clause_ref"]} {s.get("clause_title") or ""}'.strip()
                 spec_badge = (
                     f' <span class="similarity-badge">'
-                    f'TS {s["spec_number"]} · {gen} {dom}'
+                    f'{html.escape(label)} · {gen} {dom}'
                     f'</span>'
                 )
             safe_source = html.escape(s["source"])
@@ -372,6 +376,12 @@ def render_sources(sources: list):
                 f'</div>',
                 unsafe_allow_html=True,
             )
+
+
+def render_search_query(search_query, question):
+    """Show the standalone query retrieval used when a follow-up was rewritten."""
+    if search_query and question and search_query.strip() != question.strip():
+        st.caption(f"🔁 Searched for: *{html.escape(search_query)}*")
 
 
 def render_grounding(grounding):
@@ -408,6 +418,7 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
         if msg["role"] == "assistant":
+            render_search_query(msg.get("search_query"), msg.get("question"))
             render_sources(msg.get("sources", []))
             render_grounding(msg.get("grounding"))
             if msg.get("timing"):
@@ -450,11 +461,13 @@ if question:
             full_answer = []
             timing = {}
             grounding = None
+            search_query = None
 
             try:
                 for chunk in stream_query(question, source_filter, top_k):
                     if chunk["type"] == "sources":
                         sources = chunk.get("sources", [])
+                        search_query = chunk.get("search_query")
                         # Update session_id from next done chunk — handled below
                     elif chunk["type"] == "token":
                         full_answer.append(chunk["token"])
@@ -498,6 +511,7 @@ if question:
             answer = result["answer"]
             sources = result.get("sources", [])
             grounding = result.get("grounding")
+            search_query = result.get("search_query")
             timing = {
                 "query_time": result["query_time"],
                 "retrieve_time": result["retrieve_time"],
@@ -506,6 +520,7 @@ if question:
             st.session_state.session_id = result["session_id"]
             st.markdown(answer)
 
+        render_search_query(search_query, question)
         render_sources(sources)
         render_grounding(grounding)
         st.markdown(
@@ -520,6 +535,8 @@ if question:
         "sources": sources,
         "timing": timing,
         "grounding": grounding,
+        "search_query": search_query,
+        "question": question,
     })
 
 # ---------------------------------------------------------------------------

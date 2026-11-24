@@ -118,6 +118,15 @@ Milestones are defined by the outcome they unlock, the metric that confirms them
 
 ---
 
+### M13: Conversational and clause-aware RAG (Sprint 2)
+**Outcome:** Follow-up questions retrieve as well as standalone ones, and answers cite and read whole spec clauses.
+**Status:** In progress (2026-11-23, ADR-014).
+- **Done:** follow-up rewriting in the local API and UI; a clause chunker with structural headers, clause citations ("TS 38.401 §8.4.1.1"), per-clause dedupe and small-to-big expansion; the `3gpp_clauses` index; a 10-case multi-turn set.
+- **Measured:** rewriting raises follow-up Recall@5 from 0.48 to 0.77. Clause index: Recall@5 0.737, MRR 0.750 (fixed chunks 0.710 / 0.621).
+- **Remaining:** an answer-level run on the clause index, clause-level labels, making it the default (new baseline and cloud release), and the cloud path.
+
+---
+
 ## What this roadmap does not include
 
 - User counts, adoption numbers, or revenue. This is an open-source personal project. Usage metrics are not the measure of success for this tool — eval quality, security posture, and architectural clarity are.
@@ -149,4 +158,5 @@ Milestones are defined by outcome and success criteria, not sprint dates. Full m
 | M10: Release intelligence — Phase 2, Track C | Planned | Version-aware index; release-delta answers citing Change Requests |
 | M11: Second corpus validated — Phase 2, Track D | Planned | NIST SP 800-53 indexed and queryable through CorpusConfig |
 | M12: Trustworthy answers — claim citations + calibrated judging | In progress | `[Dn]` citations and a grounding check per sentence (grounded ratio 0.866, citation precision 0.882 locally); judge-truncation bug fixed; human κ for the judge pending |
+| M13: Conversational + clause-aware RAG | In progress | Follow-up rewriting (multi-turn Recall@5 0.48 → 0.77); clause chunks with structural headers: Recall@5 0.737, MRR 0.750 vs 0.710 / 0.621 for fixed chunks; clause citations + small-to-big. Default index switch pending |
 ```

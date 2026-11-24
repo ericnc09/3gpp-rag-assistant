@@ -548,6 +548,53 @@ Use the checker as a citation-traceability signal in the UI, not as a verdict. A
 
 `scripts/eval/generate_candidates.py` drafted 73 questions from substantive chunks across all 37 specs (`data/eval/golden_candidates.jsonl`, `status: needs_review`). None are used in any metric until a human accepts them and completes `relevant_sources`. Many are narrow single-message lookups, for example "What is the purpose of the RESOURCE STATUS UPDATE message in TS 38.473?". That is useful for retrieval coverage, but not representative of user questions.
 
+## 6c. Sprint 2: conversational and clause-aware retrieval (2026-11-23)
+
+Setup: same 37 specs, bge-small, golden set (25 in-corpus + 5 out-of-scope), top-5. Three indexes of the same corpus:
+
+- `3gpp_specs`: the existing fixed 1000-char chunks (44,133 chunks)
+- `3gpp_clauses`: clause chunks with the structural header `TS <spec> (<title>) §<clause>: <breadcrumb>` (46,450 chunks)
+- `3gpp_clauses_plain`: identical clause chunks without the header
+
+Built with `scripts/build_index_clauses.py` (ADR-014). Reproduce with `python scripts/eval_retrieval.py --ablation --collection <name> --ablation-out ...`. Latencies are not comparable across rows: some runs shared the CPU with an index build.
+
+### Chunking (default pipeline: Track B + BM25 hybrid, no rerank)
+
+| Index | Hit@5 | Recall@5 | MRR | nDCG@5 | OOC refusal |
+|---|---|---|---|---|---|
+| Fixed 1000-char (`3gpp_specs`, current default) | **0.96** | 0.710 | 0.621 | 0.698 | 5/5 |
+| Clause chunks, no header | 0.84 | 0.633 | 0.616 | 0.661 | 5/5 |
+| Clause chunks + header, before per-clause dedupe | 0.92 | 0.677 | **0.757** | **0.761** | 5/5 |
+| Clause chunks + header + per-clause dedupe (shipped) | 0.92 | **0.737** | 0.750 | 0.756 | 5/5 |
+
+- **The header is what makes clause chunks work.** Without it, clause chunks are worse than fixed chunks on every metric: a short clause body ("This clause gives the SgNB addition procedure…") does not say which spec or interface it belongs to. With it, MRR rises 0.616 → 0.750 on identical chunks.
+- **Per-clause dedupe.** Two parts of one clause could take two of the five slots (gs-002 retrieved 38.470 §5.2.1 twice). Keeping the best part per clause and refilling from a deeper list recovered Recall@5 0.677 → 0.737. This rule was added after looking at these 30 cases, so the 0.737 is not an untouched held-out number.
+- **Net versus fixed chunks.** Recall@5 is +0.027, MRR +0.129 and nDCG@5 +0.058; Hit@5 is −0.04, which is one query. gs-017 ("What is HARQ in NR and how does it work?") ranks LTE and NB-IoT clauses that mention HARQ. With 25 queries one case moves Hit@5 by 0.04, so read the Recall and Hit differences as within noise. The MRR gain is the consistent signal: it holds in every variant row.
+- **Rerank still does not help on this set.** That matches §6a.
+- **Clause-level precision isn't scored.** The golden set scores relevance per spec, so it cannot see the main gain of clause chunks: citations such as "TS 38.401 §8.4.1.1" and whole-clause context. Clause-level labels are needed to measure that.
+
+The served default stays `3gpp_specs` for now (regression baseline and cloud release are built on it). `COLLECTION_NAME=3gpp_clauses` switches the API to the clause index.
+
+### Follow-up questions (`data/eval/multiturn_set.jsonl`, 10 cases)
+
+Each case is a conversation plus a follow-up whose subject is only in the history. The follow-up was searched four ways (`scripts/eval/multiturn_eval.py`, rewrite by llama3.2 at temperature 0):
+
+| Search query | Fixed index Hit@5 | Recall@5 | nDCG@5 | Clause index Hit@5 | Recall@5 | nDCG@5 |
+|---|---|---|---|---|---|---|
+| Follow-up as typed (pre-Sprint 2) | 0.60 | 0.483 | 0.544 | 0.80 | 0.667 | 0.665 |
+| Previous question + follow-up (fallback) | 0.90 | 0.617 | 0.732 | 0.90 | 0.767 | 0.802 |
+| LLM rewrite (shipped) | **1.00** | **0.767** | **0.749** | **1.00** | **0.817** | **0.922** |
+| Hand-written standalone question | 0.80 | 0.650 | 0.678 | 0.80 | 0.717 | 0.741 |
+
+- **Rewriting is the largest single gain in this sprint.** On the fixed index, Recall@5 rises 0.48 → 0.77 and every follow-up finds a relevant spec.
+- **The LLM rewrite beat the hand-written standalone questions.** The model restates the subject in full ("the control-plane part of the F1 interface in NG-RAN"), which suits both BM25 and dense search; the hand-written versions were terser. The "oracle" row is therefore not an upper bound.
+- **The sample is small.** Ten cases, written by the same person who wrote the rewriter. Treat this as a demonstration of the mechanism, not a benchmark.
+
+### Not measured yet
+
+- Answer quality with whole-clause context (small-to-big). It needs a generation run on the clause index; the grounding metrics from §6b are the intended comparison.
+- The cloud path. It still serves fixed chunks and does not rewrite follow-ups.
+
 ## 7. Interpretation and next steps
 
 After both Track B increments, the honest picture:

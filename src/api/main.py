@@ -337,6 +337,7 @@ async def query(request: QueryRequest, req: Request):
         retrieve_time=result["retrieve_time"],
         generate_time=result["generate_time"],
         grounding=public_report(result.get("grounding")),
+        search_query=result.get("search_query"),
     )
 
 

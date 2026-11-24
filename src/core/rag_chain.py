@@ -17,7 +17,9 @@ import time
 from typing import List, Dict, Optional, Iterator
 
 from src.config import settings
+from src.core.clause_chunker import format_clause_ref
 from src.core.grounding import GroundingChecker, public_report
+from src.core.query_rewriter import QueryRewriter
 from src.core.retriever import DocumentRetriever
 from src.core.llm import OllamaLLM
 
@@ -57,6 +59,8 @@ class RAGChain:
         top_k: int = 5,
         max_history_turns: int = 5,
         grounding: Optional[bool] = None,
+        rewrite: Optional[bool] = None,
+        clause_expand: Optional[bool] = None,
     ):
         """
         Args:
@@ -64,6 +68,9 @@ class RAGChain:
             llm: OllamaLLM instance (created with defaults if None)
             top_k: Number of chunks to retrieve per query
             max_history_turns: How many prior Q&A pairs to keep in context
+            grounding, rewrite, clause_expand: per-instance overrides of
+                ``settings.grounding_check`` / ``query_rewrite`` /
+                ``clause_expand`` (None = use settings).
         """
         self.retriever = retriever or DocumentRetriever(top_k=top_k)
         self.llm = llm or OllamaLLM()
@@ -81,6 +88,11 @@ class RAGChain:
                     gen.generate_embedding,
                     (lambda texts: batch(texts, show_progress_bar=False)) if batch else None,
                 )
+
+        # Follow-up rewriting (ADR-014): only retrieval sees the rewrite.
+        use_rewrite = settings.query_rewrite if rewrite is None else rewrite
+        self.rewriter: Optional[QueryRewriter] = QueryRewriter(self.llm) if use_rewrite else None
+        self.clause_expand = settings.clause_expand if clause_expand is None else clause_expand
 
         logger.info(
             f"Initialized RAGChain (top_k={top_k}, "
@@ -124,13 +136,8 @@ class RAGChain:
         start = time.time()
 
         t0 = time.time()
-        docs = self.retriever.retrieve(
-            question,
-            top_k=top_k,
-            source_filter=source_filter,
-            domain=domain,
-            generation=generation,
-        )
+        rewrite = self.search_query(question)
+        docs = self._retrieve(rewrite["query"], top_k, source_filter, domain, generation)
         retrieve_time = time.time() - t0
 
         if not docs:
@@ -158,6 +165,8 @@ class RAGChain:
             "query_time": round(total_time, 3),
             "retrieve_time": round(retrieve_time, 3),
             "generate_time": round(generate_time, 3),
+            "search_query": rewrite["query"],
+            "rewrite_method": rewrite["method"],
         }
         grounding = self.check_grounding(answer, docs)
         if grounding is not None:
@@ -196,13 +205,8 @@ class RAGChain:
         """
         start = time.time()
 
-        docs = self.retriever.retrieve(
-            question,
-            top_k=top_k,
-            source_filter=source_filter,
-            domain=domain,
-            generation=generation,
-        )
+        rewrite = self.search_query(question)
+        docs = self._retrieve(rewrite["query"], top_k, source_filter, domain, generation)
 
         if not docs:
             yield {"type": "sources", "sources": [], "context": ""}
@@ -213,7 +217,13 @@ class RAGChain:
         context = self.retriever.format_context(docs)
         prompt = PROMPT_TEMPLATE.format(context=context, question=question)
 
-        yield {"type": "sources", "sources": [self._format_source(d) for d in docs], "context": context}
+        yield {
+            "type": "sources",
+            "sources": [self._format_source(d) for d in docs],
+            "context": context,
+            "search_query": rewrite["query"],
+            "rewrite_method": rewrite["method"],
+        }
 
         full_answer = []
         for token in self.llm.stream(prompt, history=self._get_history()):
@@ -226,6 +236,26 @@ class RAGChain:
         if grounding is not None:
             yield {"type": "grounding", "grounding": grounding}
         yield {"type": "done", "query_time": round(time.time() - start, 3)}
+
+    def search_query(self, question: str) -> Dict:
+        """The text retrieval should search for: the question itself, or a
+        standalone rewrite of a follow-up (``{"query", "method"}``)."""
+        if self.rewriter is None:
+            return {"query": question, "method": "none"}
+        return self.rewriter.rewrite(question, self._get_history())
+
+    def _retrieve(self, query, top_k, source_filter, domain, generation) -> List[Dict]:
+        docs = self.retriever.retrieve(
+            query,
+            top_k=top_k,
+            source_filter=source_filter,
+            domain=domain,
+            generation=generation,
+        )
+        expand = getattr(self.retriever, "expand_to_clauses", None)
+        if self.clause_expand and docs and expand is not None:
+            docs = expand(docs)
+        return docs
 
     def clear_history(self) -> None:
         """Reset conversation memory."""
@@ -260,6 +290,9 @@ class RAGChain:
             "generation":  doc.get("generation"),
             "spec_number": doc.get("spec_number"),
             "spec_title":  doc.get("spec_title"),
+            "clause":      doc.get("clause"),
+            "clause_title": doc.get("clause_title"),
+            "clause_ref":  format_clause_ref(doc),
         }
 
     def _empty_response(self, question: str, elapsed: float) -> Dict:

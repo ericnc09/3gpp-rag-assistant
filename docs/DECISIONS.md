@@ -456,3 +456,53 @@ Grounded ratio is 0.866, citation coverage 0.685 and citation precision 0.882 ov
 - reviewing the 73 golden-set candidates
 
 ---
+
+## ADR-014: Conversational retrieval and clause-aware chunks
+
+**Status:** Decided
+**Date:** 2026-11-23 (Sprint 2 — conversational and structure-aware RAG)
+**Context source:** `src/core/query_rewriter.py`; `src/core/clause_chunker.py`; `src/core/retriever.py` (`expand_to_clauses`); `scripts/build_index_clauses.py`; `scripts/eval/multiturn_eval.py`; `docs/EVAL_REPORT.md` §6c
+
+### Context
+
+Two structural gaps limited answers:
+
+- **Retrieval ignored the conversation.** History went to the LLM, but the search used only the latest message. "Which protocol runs on its control plane?" after a question about F1 searched for "its control plane".
+- **Chunks ignored the document.** The fixed-size chunker collapsed each spec to one string, appended every table at the end of the file and cut 1000-character windows. A chunk did not know its clause, could straddle two clauses, and table rows were detached from the text that introduces them. Citations could only name a file.
+
+### Options considered
+
+| Option | Assessment |
+|---|---|
+| Always send history + question to retrieval | No LLM call, but long assistant turns drown the follow-up in the embedding. Kept as the fallback (previous *user* turn only) |
+| LLM rewrite of every turn | Simple, but adds an LLM call to every first question for no gain |
+| Gated LLM rewrite (chosen) | Rewrite only when there is history and the question has anaphora / ellipsis or is very short; fall back to "previous question + follow-up" if the LLM fails |
+| Structure-aware chunking with LLM-written context (Anthropic "contextual retrieval") | Best reported gains, but one LLM call per chunk: ~50k calls on a local model is days of CPU |
+| Clause chunks with a structural header (chosen) | DOCX heading styles give exact clause numbers and titles; the header (spec, title, clause breadcrumb) is free to build |
+
+### Decision
+
+- **Follow-up rewriting.** `QueryRewriter` turns a follow-up plus the last turns into one standalone search query. Only retrieval sees it; the answer prompt keeps the user's wording. The API returns `search_query`, the stream's `sources` event carries it, and the UI shows "Searched for: …" when it differs from the question.
+- **Clause chunks.** `clause_chunker` walks the DOCX body in order (tables in place), splits at heading paragraphs, never crosses a clause boundary, and stores `clause`, `clause_title`, `clause_path`, `section_id`, `part`/`n_parts`. Sources and the LLM context cite "TS 38.401 §8.4.1.1".
+- **Contextual header.** Each chunk's embedded and BM25-indexed text starts with `TS <spec> (<title>) §<clause>: <breadcrumb>`. `header_len` lets callers strip it.
+- **One chunk per clause.** When the top-k holds two parts of the same clause, retrieval keeps the best one and refills from a deeper list (`section_dedupe`).
+- **Small-to-big.** Retrieval ranks the small parts; `expand_to_clauses` hands the LLM the whole clause (up to 3000 characters, windowed around the hit), merging parts of the same clause.
+- **Separate collection.** The clause index lives in `3gpp_clauses`; `3gpp_specs` stays. `COLLECTION_NAME` selects the served index and `--collection` the evaluated one.
+
+### Tradeoff accepted
+
+- **DOCX only.** Clause detection relies on heading styles; PDFs and legacy `.doc` still use the fixed-size chunker. All 37 indexed specs are DOCX.
+- **Rewrite costs an LLM call** on follow-ups (about 1–2 s on llama3.2 locally) and can drift; the gate skips self-contained questions.
+- **The golden set scores retrieval at spec level.** It cannot see clause-level precision, which is the main reason for clause chunks; clause-level labels are future work.
+- **Ollama context.** Whole-clause context needs a larger window, so `OllamaLLM` now requests `num_ctx=8192`.
+- **Per-clause dedupe was tuned on the eval set.** It was added after seeing duplicate parts in the top 5, so its gain (Recall@5 0.677 → 0.737) is in-sample.
+
+### Outcome
+
+Follow-ups: on 10 multi-turn cases, LLM rewriting raises Recall@5 from 0.483 to 0.767 on the fixed index, and Hit@5 from 0.60 to 1.00. Chunking (default pipeline, 25 in-corpus queries): clause chunks with headers and per-clause dedupe reach Recall@5 0.737, MRR 0.750 and nDCG@5 0.756, against 0.710 / 0.621 / 0.698 for fixed chunks. Hit@5 is 0.92 against 0.96, one query. Without the header, clause chunks are worse than fixed chunks (MRR 0.616), so the header is not optional. The served default stays `3gpp_specs` until answer-level evaluation on the clause index and a new regression baseline and cloud release exist. Open items:
+- clause-level relevance labels
+- an answer and grounding run with small-to-big context
+- switching the default collection
+- the cloud path (no rewrite, fixed chunks)
+
+---

@@ -163,3 +163,8 @@ def _dense_only_by_default(monkeypatch):
     monkeypatch.setattr(settings, "rerank", False)
     # Grounding needs real vectors; tested explicitly in test_grounding.py.
     monkeypatch.setattr(settings, "grounding_check", False)
+    # Follow-up rewriting adds an LLM call and clause expansion reads the
+    # collection; both are tested explicitly (test_query_rewriter.py,
+    # test_clause_chunker.py, TestRAGChainConversational).
+    monkeypatch.setattr(settings, "query_rewrite", False)
+    monkeypatch.setattr(settings, "clause_expand", False)

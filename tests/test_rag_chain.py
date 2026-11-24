@@ -208,3 +208,73 @@ class TestRAGChainGrounding:
     def test_prompt_asks_for_dn_citations(self):
         from src.core.rag_chain import PROMPT_TEMPLATE
         assert "[D1]" in PROMPT_TEMPLATE and "[17]" in PROMPT_TEMPLATE
+
+
+class TestRAGChainConversational:
+    """Follow-up rewriting and clause expansion (ADR-014)."""
+
+    def _chain(self, rewrite_to="Which protocol runs on the F1-C control plane?", expand=False):
+        from src.core.rag_chain import RAGChain
+
+        retriever = MagicMock()
+        retriever.retrieve.return_value = SAMPLE_DOCS
+        retriever.format_context.return_value = "[Document 1] ..."
+        retriever.expand_to_clauses.side_effect = lambda docs: [dict(d, expanded=True) for d in docs]
+        llm = MagicMock()
+        llm.model = "llama3.2"
+        # First generate() call is the answer; later ones may be rewrites.
+        llm.generate.side_effect = lambda prompt, **kw: (
+            rewrite_to if "Standalone question:" in prompt else "Answer [D1].")
+        llm.stream.return_value = iter(["Answer"])
+        chain = RAGChain(retriever=retriever, llm=llm, rewrite=True, clause_expand=expand)
+        return chain, retriever, llm
+
+    def test_first_question_not_rewritten(self):
+        chain, retriever, llm = self._chain()
+        result = chain.query("What is the F1 interface?")
+        assert result["search_query"] == "What is the F1 interface?"
+        assert result["rewrite_method"] == "none"
+        assert llm.generate.call_count == 1
+
+    def test_follow_up_retrieves_with_rewrite_but_answers_original(self):
+        chain, retriever, llm = self._chain()
+        chain.query("What is the F1 interface?")
+        result = chain.query("Which protocol runs on its control plane?")
+        assert retriever.retrieve.call_args.args[0] == "Which protocol runs on the F1-C control plane?"
+        assert result["rewrite_method"] == "llm"
+        answer_prompt = llm.generate.call_args.args[0]
+        assert "Which protocol runs on its control plane?" in answer_prompt
+        assert chain.get_history()[-2]["content"] == "Which protocol runs on its control plane?"
+
+    def test_stream_reports_search_query(self):
+        chain, retriever, llm = self._chain()
+        chain._add_to_history("What is the F1 interface?", "F1 connects CU and DU.")
+        first = next(chain.stream_query("And its user plane?"))
+        assert first["type"] == "sources"
+        assert first["search_query"] == "Which protocol runs on the F1-C control plane?"
+
+    def test_rewrite_disabled(self):
+        from src.core.rag_chain import RAGChain
+        chain = RAGChain(retriever=MagicMock(), llm=MagicMock(), rewrite=False)
+        assert chain.rewriter is None
+        assert chain.search_query("And its user plane?") == {"query": "And its user plane?",
+                                                             "method": "none"}
+
+    def test_clause_expansion_applied_when_enabled(self):
+        chain, retriever, _ = self._chain(expand=True)
+        chain.query("What is the F1 interface?")
+        retriever.expand_to_clauses.assert_called_once()
+        assert all(d.get("expanded") for d in retriever.format_context.call_args.args[0])
+
+    def test_clause_expansion_off(self):
+        chain, retriever, _ = self._chain(expand=False)
+        chain.query("What is the F1 interface?")
+        retriever.expand_to_clauses.assert_not_called()
+
+    def test_sources_carry_clause_ref(self):
+        from src.core.rag_chain import RAGChain
+        src = RAGChain._format_source({"text": "t", "source": "38401.docx", "similarity": 0.5,
+                                       "spec_number": "38.401", "clause": "8.4.1",
+                                       "clause_title": "Addition"})
+        assert src["clause_ref"] == "TS 38.401 §8.4.1"
+        assert src["clause_title"] == "Addition"

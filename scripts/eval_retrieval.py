@@ -893,6 +893,7 @@ def run_ablation(test_cases: List[Dict], top_k: int, total_chunks: int,
             "config": {
                 "top_k": top_k,
                 "total_chunks": total_chunks,
+                "collection": settings.collection_name,
                 "dataset": dataset_label,
                 "embedding_model": settings.embedding_model,
                 "rerank_model": settings.rerank_model,
@@ -986,7 +987,19 @@ def main():
         help="Run the retrieval-only ablation (dense -> +Track B -> +BM25 -> "
              "+rerank) and write data/eval/ablation.json",
     )
+    parser.add_argument(
+        "--collection", default=None,
+        help="ChromaDB collection to evaluate (default: settings.collection_name). "
+             "E.g. 3gpp_clauses for the clause-chunked index (ADR-014)",
+    )
+    parser.add_argument(
+        "--ablation-out", default="data/eval/ablation.json",
+        help="Where --ablation writes its table (default: data/eval/ablation.json)",
+    )
     args = parser.parse_args()
+
+    if args.collection:
+        settings.collection_name = args.collection
 
     from src.core.vector_store import VectorStore
     vs_stats = VectorStore().get_stats()
@@ -1012,7 +1025,8 @@ def main():
     print(f"\n{'='*60}")
     print("3GPP RAG Pipeline Evaluation")
     print(f"{'='*60}")
-    print(f"Vector store:  {vs_stats['total_chunks']} chunks")
+    print(f"Vector store:  {vs_stats['total_chunks']} chunks "
+          f"(collection '{vs_stats['collection_name']}')")
     print(f"Dataset:       {dataset_label}")
     print(f"Top-k:         {args.top_k}")
     mode_parts = ["Retrieval"]
@@ -1023,7 +1037,8 @@ def main():
     print(f"Mode:          {' + '.join(mode_parts)}")
 
     if args.ablation:
-        run_ablation(test_cases, args.top_k, vs_stats["total_chunks"], dataset_label)
+        run_ablation(test_cases, args.top_k, vs_stats["total_chunks"], dataset_label,
+                     out_path=args.ablation_out)
         return
 
     retriever = DocumentRetriever(top_k=args.top_k, hybrid=args.hybrid, rerank=args.rerank)

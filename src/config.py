@@ -120,6 +120,17 @@ class Settings(BaseSettings):
     # embedding model (no extra model, no LLM call).
     grounding_check: bool = True
 
+    # Sprint 2 (ADR-014): conversational + clause-aware RAG.
+    # Rewrite follow-up questions into standalone search queries (one short
+    # LLM call, only when the question depends on chat history).
+    query_rewrite: bool = True
+    # Small-to-big: hand the LLM the whole clause a retrieved part belongs to
+    # (no-op on the fixed-size index, which has no clause metadata).
+    clause_expand: bool = True
+    clause_expand_max_chars: int = 3000
+    # One chunk per clause in the top-k (clause index only).
+    section_dedupe: bool = True
+
 
 # Global settings instance
 settings = Settings()

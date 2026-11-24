@@ -316,3 +316,104 @@ def test_keyword_only_similarity_is_plain_float(hybrid_retriever):
     docs = hybrid_retriever.retrieve("When is T310 started?")
     for d in docs:
         assert type(d["similarity"]) is float
+
+
+# ---------------------------------------------------------------------------
+# Small-to-big clause expansion (ADR-014)
+# ---------------------------------------------------------------------------
+
+class TestExpandToClauses:
+    HEADER = "TS 38.401 §8.4.1: Addition\n"
+
+    def _parts(self):
+        bodies = ["part zero body\nshared lead-in:", "shared lead-in:\npart one body", "part two body"]
+        docs = [self.HEADER + b for b in bodies]
+        metas = [{"section_id": "38401.docx#8.4.1", "part": i, "n_parts": 3,
+                  "header_len": len(self.HEADER)} for i in range(3)]
+        return docs, metas
+
+    def _retriever(self, mock_vector_store, mock_embedding_generator):
+        from src.core.retriever import DocumentRetriever
+        docs, metas = self._parts()
+        # Returned out of order on purpose: expansion must sort by part.
+        mock_vector_store.collection.get.return_value = {
+            "documents": list(reversed(docs)), "metadatas": list(reversed(metas))}
+        return DocumentRetriever(vector_store=mock_vector_store,
+                                 embedding_generator=mock_embedding_generator)
+
+    def _hit(self, part, chunk_id="c1"):
+        return {"id": chunk_id, "text": self.HEADER + "retrieved", "source": "38401.docx",
+                "similarity": 0.8, "section_id": "38401.docx#8.4.1", "part": part,
+                "n_parts": 3, "header_len": len(self.HEADER)}
+
+    def test_whole_clause_in_order_without_repeated_overlap(self, mock_vector_store,
+                                                            mock_embedding_generator):
+        r = self._retriever(mock_vector_store, mock_embedding_generator)
+        [doc] = r.expand_to_clauses([self._hit(1)], max_chars=10_000)
+        assert doc["expanded"] is True
+        assert doc["text"] == (self.HEADER + "part zero body\nshared lead-in:\n"
+                               "part one body\npart two body")
+        mock_vector_store.collection.get.assert_called_once()
+        assert mock_vector_store.collection.get.call_args.kwargs["where"] == {
+            "section_id": "38401.docx#8.4.1"}
+
+    def test_budget_windows_around_the_hit(self, mock_vector_store, mock_embedding_generator):
+        r = self._retriever(mock_vector_store, mock_embedding_generator)
+        [doc] = r.expand_to_clauses([self._hit(2)], max_chars=30)
+        assert "part two body" in doc["text"]
+        assert "part zero body" not in doc["text"]
+
+    def test_same_clause_parts_merge_at_best_rank(self, mock_vector_store, mock_embedding_generator):
+        r = self._retriever(mock_vector_store, mock_embedding_generator)
+        other = {"id": "x", "text": "fixed chunk", "source": "38300.docx", "similarity": 0.7}
+        out = r.expand_to_clauses([self._hit(0, "a"), other, self._hit(2, "b")], max_chars=10_000)
+        assert [d.get("id") for d in out] == ["a", "x"]
+        assert out[0]["merged_ids"] == ["b"]
+        assert out[1] is other  # no clause metadata -> unchanged
+
+    def test_single_part_clause_not_fetched(self, mock_vector_store, mock_embedding_generator):
+        r = self._retriever(mock_vector_store, mock_embedding_generator)
+        hit = {**self._hit(0), "n_parts": 1}
+        [doc] = r.expand_to_clauses([hit])
+        assert doc["text"] == hit["text"] and "expanded" not in doc
+        mock_vector_store.collection.get.assert_not_called()
+
+    def test_store_error_keeps_chunk(self, mock_vector_store, mock_embedding_generator):
+        r = self._retriever(mock_vector_store, mock_embedding_generator)
+        mock_vector_store.collection.get.side_effect = RuntimeError("db")
+        [doc] = r.expand_to_clauses([self._hit(1)])
+        assert doc["text"] == self.HEADER + "retrieved"
+
+    def test_format_context_cites_clause(self, mock_vector_store, mock_embedding_generator):
+        r = self._retriever(mock_vector_store, mock_embedding_generator)
+        hit = {**self._hit(0), "spec_number": "38.401", "clause": "8.4.1", "clause_title": "Addition"}
+        assert "Clause: TS 38.401 §8.4.1 Addition" in r.format_context([hit])
+
+
+class TestSectionDedupe:
+    def test_dedupe_keeps_best_part_per_clause(self):
+        from src.core.retriever import _dedupe_sections, _has_duplicate_sections
+        docs = [{"id": 1, "section_id": "a#1"}, {"id": 2}, {"id": 3, "section_id": "a#1"},
+                {"id": 4, "section_id": "a#2"}, {"id": 5}]
+        assert _has_duplicate_sections(docs)
+        assert [d["id"] for d in _dedupe_sections(docs)] == [1, 2, 4, 5]
+        assert not _has_duplicate_sections([{"id": 1}, {"id": 2}])
+
+    def test_retrieve_refills_after_dedupe(self, mock_embedding_generator, monkeypatch):
+        from unittest.mock import MagicMock
+        from src.core import retriever as mod
+
+        calls = []
+
+        def fake_fused(query, search_fn, n, **kw):
+            calls.append(n)
+            pool = [{"id": i, "text": "t", "source": "s", "similarity": 0.9,
+                     "section_id": f"s#{i // 2}"} for i in range(n)]
+            return pool[:n]
+
+        monkeypatch.setattr(mod, "fused_retrieve", fake_fused)
+        r = mod.DocumentRetriever(vector_store=MagicMock(),
+                                  embedding_generator=mock_embedding_generator, top_k=3)
+        docs = r.retrieve("q")
+        assert calls == [3, 9]
+        assert [d["section_id"] for d in docs] == ["s#0", "s#1", "s#2"]

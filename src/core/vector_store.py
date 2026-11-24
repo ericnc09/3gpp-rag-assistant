@@ -23,21 +23,33 @@ from chromadb.config import Settings
 logger = logging.getLogger(__name__)
 
 
+CLAUSE_META_KEYS = (
+    "chunking", "clause", "clause_title", "clause_path",
+    "section_id", "part", "n_parts", "header_len",
+)
+
+
 class VectorStore:
     """Manage vector database operations with ChromaDB"""
     
     def __init__(
         self,
         persist_directory: str = "data/vectordb",
-        collection_name: str = "3gpp_specs"
+        collection_name: Optional[str] = None,
     ):
         """
         Initialize vector store
         
         Args:
             persist_directory: Directory to store the database
-            collection_name: Name of the collection
+            collection_name: Name of the collection (default:
+                ``settings.collection_name``, so ``COLLECTION_NAME=...`` picks
+                an alternative index such as the clause-chunked one)
         """
+        if collection_name is None:
+            from src.config import settings
+
+            collection_name = settings.collection_name
         self.persist_directory = Path(persist_directory)
         self.collection_name = collection_name
         
@@ -97,6 +109,10 @@ class VectorStore:
                 "spec_number": meta.get('spec_number', 'unknown'),
                 "spec_title":  meta.get('spec_title', 'unknown'),
             }
+            # Clause-chunk fields (ADR-014); absent for fixed-size chunks.
+            for key in CLAUSE_META_KEYS:
+                if meta.get(key) is not None:
+                    metadata[key] = meta[key]
             metadatas.append(metadata)
 
         # Add in batches (ChromaDB per-call limit)
