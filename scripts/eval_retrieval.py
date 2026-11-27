@@ -452,6 +452,10 @@ def run_answer_eval(
         aq["answer"] = rag_result["answer"]
         # The judge must see the chunks the answer was generated from;
         # retrieval is deterministic, so these are the chain's own chunks.
+        # With small-to-big on (clause index), the chain answered from whole
+        # clauses, so the judge gets the same expansion (no-op on fixed chunks).
+        if getattr(chain, "clause_expand", False):
+            docs = retriever.expand_to_clauses(docs)
         aq["answer_docs"] = docs
         grounding = rag_result.get("grounding")
         if grounding is not None:
@@ -814,7 +818,8 @@ def _serialisable_case(result: Dict) -> Dict:
     docs = result.get("answer_docs") or []
     if docs:
         out["answer_doc_refs"] = [
-            {"id": d.get("id"), "source": d.get("source"), "chunk_index": d.get("chunk_index")}
+            {"id": d.get("id"), "source": d.get("source"), "chunk_index": d.get("chunk_index"),
+             "section_id": d.get("section_id"), "expanded": bool(d.get("expanded"))}
             for d in docs
         ]
     return out
@@ -1088,6 +1093,8 @@ def main():
                 "judge_eval":    args.judge,
                 "judge_provider": args.judge_provider if args.judge else None,
                 "total_chunks":  vs_stats["total_chunks"],
+                "collection":    settings.collection_name,
+                "clause_expand": settings.clause_expand,
                 "dataset":       dataset_label,
             },
             "summary": summary,
